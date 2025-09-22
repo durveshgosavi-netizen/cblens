@@ -11,15 +11,20 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogOut, History, BarChart3, Camera, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
 type AppState = "menu" | "camera" | "results";
-
 const Index = () => {
-  const { isAuthenticated, loading, signOut, profile } = useAuth();
+  const {
+    isAuthenticated,
+    loading,
+    signOut,
+    profile
+  } = useAuth();
   const [currentState, setCurrentState] = useState<AppState>("menu");
   const [activeTab, setActiveTab] = useState("menu");
   const [capturedImage, setCapturedImage] = useState<string>("");
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
 
   // Debug logging for state changes
   console.log("Index component rendering, currentState:", currentState);
@@ -36,84 +41,56 @@ const Index = () => {
     setCurrentState("camera");
     console.log("State should now be camera");
   }, [currentState]);
-
   const handleCaptureComplete = useCallback((imageUrl: string) => {
     setCapturedImage(imageUrl);
     setCurrentState("results");
   }, []);
-
   const handleCancelCamera = useCallback(() => {
     setCurrentState("menu");
   }, []);
-
   const handleBackFromResults = useCallback(() => {
     setCurrentState("menu");
   }, []);
-
   const handleRescan = useCallback(() => {
     setCurrentState("camera");
   }, []);
-
   const handleSaveScan = useCallback((result: any) => {
     toast({
       title: "Scan Saved Successfully",
-      description: `${result.dish.name} (${result.portion}× portion) logged with ${result.nutrition.calories} kcal`,
+      description: `${result.dish.name} (${result.portion}× portion) logged with ${result.nutrition.calories} kcal`
     });
     setCurrentState("menu");
   }, [toast]);
-
   const handleAuthSuccess = () => {
     // User will be redirected automatically
   };
 
   // Early returns come after all hooks
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+    return <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
+      </div>;
   }
-
   if (!isAuthenticated) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-
   // Handle camera and results states (these should override the normal tab interface)
   if (currentState === "camera") {
-    return (
-      <CameraInterface 
-        onCapture={handleCaptureComplete}
-        onCancel={handleCancelCamera}
-      />
-    );
+    return <CameraInterface onCapture={handleCaptureComplete} onCancel={handleCancelCamera} />;
   }
-
   if (currentState === "results") {
-    return (
-      <ScanResults
-        capturedImage={capturedImage}
-        onBack={handleBackFromResults}
-        onSave={handleSaveScan}
-        onRescan={handleRescan}
-      />
-    );
+    return <ScanResults capturedImage={capturedImage} onBack={handleBackFromResults} onSave={handleSaveScan} onRescan={handleRescan} />;
   }
 
   // Normal tabbed interface when currentState is "menu"
 
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <div className="bg-gradient-to-br from-primary-glow to-fresh-mint p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img 
-              src="/src/assets/logo-cbk.png" 
-              alt="Cheval Blanc Kantiner" 
-              className="w-10 h-10 object-contain"
-            />
-            <h1 className="text-2xl font-bold text-foreground">CB Lens</h1>
+            <img src="/src/assets/logo-cbk.png" alt="Cheval Blanc Kantiner" className="w-10 h-10 object-contain" />
+            <h1 className="text-2xl font-bold text-gray-700">Lens</h1>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm">{profile?.full_name}</span>
@@ -139,8 +116,6 @@ const Index = () => {
           <TabsContent value="upload"><MenuUpload /></TabsContent>
         </Tabs>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
