@@ -28,10 +28,44 @@ const Index = () => {
     console.log("State changed to:", currentState);
   }, [currentState]);
 
+  // All hooks must be before any early returns
+  const handleStartScan = useCallback(() => {
+    console.log("Scan button clicked, changing state to camera");
+    console.log("Current state before change:", currentState);
+    setCurrentState("camera");
+    console.log("State should now be camera");
+  }, [currentState]);
+
+  const handleCaptureComplete = useCallback((imageUrl: string) => {
+    setCapturedImage(imageUrl);
+    setCurrentState("results");
+  }, []);
+
+  const handleCancelCamera = useCallback(() => {
+    setCurrentState("menu");
+  }, []);
+
+  const handleBackFromResults = useCallback(() => {
+    setCurrentState("menu");
+  }, []);
+
+  const handleRescan = useCallback(() => {
+    setCurrentState("camera");
+  }, []);
+
+  const handleSaveScan = useCallback((result: any) => {
+    toast({
+      title: "Scan Saved Successfully",
+      description: `${result.dish.name} (${result.portion}× portion) logged with ${result.nutrition.calories} kcal`,
+    });
+    setCurrentState("menu");
+  }, [toast]);
+
   const handleAuthSuccess = () => {
     // User will be redirected automatically
   };
 
+  // Early returns come after all hooks
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -44,38 +78,6 @@ const Index = () => {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  const handleStartScan = useCallback(() => {
-    console.log("Scan button clicked, changing state to camera");
-    console.log("Current state before change:", currentState);
-    setCurrentState("camera");
-    console.log("State should now be camera");
-  }, [currentState]);
-
-  const handleCaptureComplete = (imageUrl: string) => {
-    setCapturedImage(imageUrl);
-    setCurrentState("results");
-  };
-
-  const handleCancelCamera = () => {
-    setCurrentState("menu");
-  };
-
-  const handleBackFromResults = () => {
-    setCurrentState("menu");
-  };
-
-  const handleRescan = () => {
-    setCurrentState("camera");
-  };
-
-  const handleSaveScan = (result: any) => {
-    // In a real app, this would save to the backend
-    toast({
-      title: "Scan Saved Successfully",
-      description: `${result.dish.name} (${result.portion}× portion) logged with ${result.nutrition.calories} kcal`,
-    });
-    setCurrentState("menu");
-  };
 
   // Handle camera and results states (these should override the normal tab interface)
   if (currentState === "camera") {
