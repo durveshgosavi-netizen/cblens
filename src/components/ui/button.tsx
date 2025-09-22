@@ -9,12 +9,17 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-warm",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // CB Lens specific variants
+        scan: "bg-gradient-to-r from-primary to-primary-light text-primary-foreground hover:from-primary/90 hover:to-primary-light/90 shadow-floating font-semibold",
+        confirm: "bg-accent-vibrant text-white hover:bg-accent-vibrant/90 shadow-card",
+        soft: "bg-warm-cream text-foreground border border-warm-sand hover:bg-warm-sand/50",
+        floating: "bg-card text-card-foreground hover:bg-warm-cream shadow-floating border border-border/50",
       },
       size: {
         default: "h-10 px-4 py-2",
