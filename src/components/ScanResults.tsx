@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,61 +13,88 @@ interface ScanResultsProps {
   onRescan: () => void;
 }
 
-// Mock AI detection results
-const mockDetectionResults = [
-  {
-    id: "1",
-    name: "Grilled Salmon with Quinoa",
-    category: "Main Course",
-    protein: 32,
-    carbs: 28,
-    fat: 14,
-    calories: 340,
-    allergens: ["fish"],
-    confidence: 0.92,
-    image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
-  },
-  {
-    id: "2",
-    name: "Mediterranean Bowl",
-    category: "Healthy Choice", 
-    protein: 18,
-    carbs: 42,
-    fat: 12,
-    calories: 320,
-    allergens: ["nuts"],
-    confidence: 0.76,
-    image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
-  },
-  {
-    id: "3",
-    name: "Chicken Tikka Masala",
-    category: "International",
-    protein: 28,
-    carbs: 35,
-    fat: 16,
-    calories: 380,
-    allergens: ["dairy"],
-    confidence: 0.61,
-    image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
+// Get Danish menu items from the database
+const getDanishMenuItems = async () => {
+  const { data } = await supabase
+    .from('kanpla_items')
+    .select('*')
+    .like('kanpla_item_id', 'danish-%')
+    .limit(3);
+  
+  return data || [];
+};
+
+// Mock AI detection results using real Danish dishes
+const getMockDetectionResults = async () => {
+  const danishItems = await getDanishMenuItems();
+  
+  if (danishItems.length === 0) {
+    // Fallback mock data if no Danish items found
+    return [
+      {
+        id: "danish-fransk-logsuppe",
+        name: "Fransk løgsuppe m. gratineret ostebrød",
+        category: "Main Course",
+        protein: 8,
+        carbs: 25,
+        fat: 12,
+        calories: 220,
+        allergens: ["dairy", "gluten"],
+        confidence: 0.92,
+        image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
+      }
+    ];
   }
-];
+  
+  return danishItems.map((item, index) => ({
+    id: item.kanpla_item_id,
+    name: item.name,
+    category: item.category,
+    protein: Number(item.protein_per_100g) || 20,
+    carbs: Number(item.carbs_per_100g) || 30,
+    fat: Number(item.fat_per_100g) || 10,
+    calories: Number(item.calories_per_100g) || 250,
+    allergens: item.allergens || [],
+    confidence: [0.92, 0.76, 0.61][index] || 0.5,
+    image: `https://images.unsplash.com/photo-${
+      ['1547592166-23ac45744acd', '1565557623262-b51c2513a641', '1567620905889-e6c0028c5bac'][index] || '1547592166-23ac45744acd'
+    }?w=400&h=300&fit=crop&crop=center&auto=format&q=80`
+  }));
+};
 
 export default function ScanResults({ capturedImage, onBack, onSave, onRescan }: ScanResultsProps) {
-  const [selectedDish, setSelectedDish] = useState(mockDetectionResults[0]);
+  const [detectionResults, setDetectionResults] = useState<any[]>([]);
+  const [selectedDish, setSelectedDish] = useState<any>(null);
   const [portionSize, setPortionSize] = useState<"0.5" | "1" | "1.5">("1");
   const [estimatedWeight, setEstimatedWeight] = useState(250);
   const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDetectionResults();
+  }, []);
+
+  const loadDetectionResults = async () => {
+    try {
+      const results = await getMockDetectionResults();
+      setDetectionResults(results);
+      setSelectedDish(results[0]);
+    } catch (error) {
+      console.error('Error loading detection results:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const portionMultiplier = parseFloat(portionSize);
   
-  const adjustedNutrition = {
+  const adjustedNutrition = selectedDish ? {
     protein: Math.round(selectedDish.protein * portionMultiplier),
     carbs: Math.round(selectedDish.carbs * portionMultiplier), 
     fat: Math.round(selectedDish.fat * portionMultiplier),
     calories: Math.round(selectedDish.calories * portionMultiplier),
     weight: Math.round(estimatedWeight * portionMultiplier)
-  };
+  } : { protein: 0, carbs: 0, fat: 0, calories: 0, weight: 0 };
 
   const handleSave = async () => {
     if (!selectedDish) return;
@@ -87,7 +114,7 @@ export default function ScanResults({ capturedImage, onBack, onSave, onRescan }:
         photo_url: !photoBase64 ? capturedImage : null,
         notes: notes || null,
         canteen_location: 'Main Campus',
-        alternatives: mockDetectionResults.filter(dish => dish.id !== selectedDish.id)
+        alternatives: detectionResults.filter(dish => dish.id !== selectedDish.id)
       };
 
       const { data, error } = await supabase.functions.invoke('save-scan', {
@@ -156,20 +183,26 @@ export default function ScanResults({ capturedImage, onBack, onSave, onRescan }:
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Detected Dishes</h3>
               <Badge variant="secondary">
-                {mockDetectionResults.length} matches found
+                {loading ? "Loading..." : `${detectionResults.length} matches found`}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {mockDetectionResults.map((dish) => (
-              <DishCard
-                key={dish.id}
-                dish={dish}
-                isSelected={selectedDish.id === dish.id}
-                onSelect={() => setSelectedDish(dish)}
-                showConfidence={true}
-              />
-            ))}
+            {loading ? (
+              <div className="text-center py-4">
+                <div className="text-muted-foreground">Analyzing dish...</div>
+              </div>
+            ) : (
+              detectionResults.map((dish) => (
+                <DishCard
+                  key={dish.id}
+                  dish={dish}
+                  isSelected={selectedDish?.id === dish.id}
+                  onSelect={() => setSelectedDish(dish)}
+                  showConfidence={true}
+                />
+              ))
+            )}
           </CardContent>
         </Card>
 
