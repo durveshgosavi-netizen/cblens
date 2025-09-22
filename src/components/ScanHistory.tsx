@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Clock, Search, Filter, Download } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Download, Search, Filter, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
 interface Scan {
@@ -15,20 +16,20 @@ interface Scan {
   confidence: 'high' | 'medium' | 'low';
   portion_preset: 'half' | 'normal' | 'large';
   estimated_grams: number;
+  scaled_calories: number;
   scaled_protein: number;
   scaled_carbs: number;
   scaled_fat: number;
-  scaled_calories: number;
-  canteen_location: string;
   notes?: string;
-  manual_override: boolean;
   photo_url?: string;
-  kanpla_items: {
+  canteen_location: string;
+  kanpla_item_id: string;
+  kanpla_items?: {
     name: string;
     category: string;
     image_url?: string;
   };
-  profiles: {
+  profiles?: {
     full_name: string | null;
   };
 }
@@ -43,108 +44,102 @@ export default function ScanHistory() {
 
   useEffect(() => {
     fetchScans();
-  }, []);
+  }, [confidenceFilter, dateFilter]);
 
   const fetchScans = async () => {
     try {
+      setLoading(true);
+      
       let query = supabase
         .from('scans')
         .select(`
           *,
-          kanpla_items (name, category, image_url),
-          profiles (full_name)
+          kanpla_items:kanpla_item_id (
+            name,
+            category,
+            image_url
+          ),
+          profiles:user_id (
+            full_name
+          )
         `)
         .order('scan_timestamp', { ascending: false });
 
-      // Apply filters
       if (confidenceFilter !== "all") {
         query = query.eq('confidence', confidenceFilter as 'high' | 'medium' | 'low');
       }
 
-      if (dateFilter === "today") {
-        const today = new Date().toISOString().split('T')[0];
-        query = query.gte('scan_timestamp', today);
-      } else if (dateFilter === "week") {
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        query = query.gte('scan_timestamp', weekAgo.toISOString());
+      if (dateFilter !== "all") {
+        const now = new Date();
+        let dateFrom: Date;
+        
+        switch (dateFilter) {
+          case "today":
+            dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            break;
+          case "week":
+            dateFrom = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            break;
+          case "month":
+            dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+            break;
+          default:
+            dateFrom = new Date(0);
+        }
+        
+        query = query.gte('scan_timestamp', dateFrom.toISOString());
       }
 
       const { data, error } = await query;
 
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch scan history",
-          variant: "destructive",
-        });
-        return;
-      }
+      if (error) throw error;
 
-      setScans((data as unknown as Scan[]) || []);
+      setScans((data as any) || []);
     } catch (error) {
       console.error('Error fetching scans:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch scan history. Please try again.",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const exportToCSV = () => {
-    const csvHeaders = [
-      'Date',
-      'Time',
-      'Dish Name',
-      'Category',
-      'Confidence',
-      'Portion',
-      'Weight (g)',
-      'Protein (g)',
-      'Carbs (g)',
-      'Fat (g)',
-      'Calories',
-      'Location',
-      'Scanned By',
-      'Notes'
-    ];
+    const csvData = filteredScans.map(scan => ({
+      Date: format(new Date(scan.scan_timestamp), 'yyyy-MM-dd HH:mm'),
+      Dish: scan.kanpla_items?.name || `Dish ${scan.kanpla_item_id}`,
+      Category: scan.kanpla_items?.category || 'Unknown',
+      Confidence: scan.confidence,
+      Portion: getPortionLabel(scan.portion_preset),
+      'Weight (g)': scan.estimated_grams,
+      'Calories': scan.scaled_calories,
+      'Protein (g)': scan.scaled_protein,
+      'Carbs (g)': scan.scaled_carbs,
+      'Fat (g)': scan.scaled_fat,
+      Location: scan.canteen_location,
+      Notes: scan.notes || ''
+    }));
 
-    const csvData = scans.map(scan => [
-      format(new Date(scan.scan_timestamp), 'yyyy-MM-dd'),
-      format(new Date(scan.scan_timestamp), 'HH:mm:ss'),
-      scan.kanpla_items.name,
-      scan.kanpla_items.category,
-      scan.confidence,
-      scan.portion_preset,
-      scan.estimated_grams,
-      scan.scaled_protein,
-      scan.scaled_carbs,
-      scan.scaled_fat,
-      scan.scaled_calories,
-      scan.canteen_location,
-      scan.profiles.full_name,
-      scan.notes || ''
-    ]);
-
-    const csvContent = [csvHeaders, ...csvData]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
+    const csvContent = [
+      Object.keys(csvData[0]).join(','),
+      ...csvData.map(row => Object.values(row).map(val => `"${val}"`).join(','))
+    ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `cb-lens-scans-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
-
-    toast({
-      title: "Export Complete",
-      description: "Scan history exported to CSV successfully",
-    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `scan-history-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const filteredScans = scans.filter(scan =>
-    scan.kanpla_items.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    scan.kanpla_items.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    scan.kanpla_items?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    scan.kanpla_items?.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     scan.canteen_location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -153,58 +148,74 @@ export default function ScanHistory() {
       case 'high': return 'default';
       case 'medium': return 'secondary';
       case 'low': return 'destructive';
-      default: return 'outline';
+      default: return 'secondary';
     }
   };
 
   const getPortionLabel = (portion: string) => {
     switch (portion) {
-      case 'half': return '½×';
-      case 'normal': return '1×';
-      case 'large': return '1½×';
+      case 'half': return '½× Portion';
+      case 'normal': return '1× Portion';
+      case 'large': return '1½× Portion';
       default: return portion;
     }
   };
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-6">
-              <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
-              <div className="h-3 bg-muted rounded w-1/2"></div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold">Scan History</h2>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        
+        <div className="grid gap-4">
+          {[...Array(5)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-16 w-16 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Filters and Search */}
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Scan History</h2>
+        <Button variant="outline" onClick={exportToCSV} disabled={filteredScans.length === 0}>
+          <Download className="h-4 w-4 mr-2" />
+          Export CSV
+        </Button>
+      </div>
+
+      {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Scan History
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search dishes, categories, or locations..."
+                placeholder="Search dishes..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-9"
               />
             </div>
             
             <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
-              <SelectTrigger className="w-full sm:w-40">
+              <SelectTrigger>
                 <Filter className="h-4 w-4 mr-2" />
                 <SelectValue placeholder="Confidence" />
               </SelectTrigger>
@@ -217,109 +228,101 @@ export default function ScanHistory() {
             </Select>
 
             <Select value={dateFilter} onValueChange={setDateFilter}>
-              <SelectTrigger className="w-full sm:w-32">
-                <SelectValue placeholder="Date" />
+              <SelectTrigger>
+                <Calendar className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Date Range" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Time</SelectItem>
                 <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="week">Last 7 Days</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
               </SelectContent>
             </Select>
-
-            <Button onClick={exportToCSV} variant="outline" className="whitespace-nowrap">
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
-          </div>
-
-          <div className="text-sm text-muted-foreground">
-            {filteredScans.length} scan{filteredScans.length !== 1 ? 's' : ''} found
+            
+            <div className="text-sm text-muted-foreground flex items-center">
+              {filteredScans.length} scan{filteredScans.length !== 1 ? 's' : ''} found
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Scan List */}
       <div className="space-y-4">
-        {filteredScans.map((scan) => (
-          <Card key={scan.id} className="shadow-card">
-            <CardContent className="p-6">
-              <div className="flex items-start gap-4">
-                {scan.kanpla_items.image_url && (
-                  <div className="flex-shrink-0">
-                    <img
-                      src={scan.kanpla_items.image_url}
-                      alt={scan.kanpla_items.name}
-                      className="w-16 h-16 rounded-lg object-cover"
-                    />
-                  </div>
-                )}
-                
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-lg">{scan.kanpla_items.name}</h3>
-                      <p className="text-sm text-muted-foreground">{scan.kanpla_items.category}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getConfidenceBadgeVariant(scan.confidence)}>
-                        {scan.confidence} confidence
-                      </Badge>
-                      {scan.manual_override && (
-                        <Badge variant="outline">Manual Override</Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Portion:</span>
-                      <p className="font-medium">{getPortionLabel(scan.portion_preset)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Weight:</span>
-                      <p className="font-medium">{scan.estimated_grams}g</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Calories:</span>
-                      <p className="font-medium">{Math.round(scan.scaled_calories)}</p>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Protein:</span>
-                      <p className="font-medium">{scan.scaled_protein}g</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {format(new Date(scan.scan_timestamp), 'MMM d, yyyy HH:mm')}
-                    </div>
-                    <div>
-                      {scan.canteen_location}
-                    </div>
-                    <div>
-                      by {scan.profiles.full_name || 'Unknown User'}
-                    </div>
-                  </div>
-
-                  {scan.notes && (
-                    <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                      <span className="text-muted-foreground">Note:</span> {scan.notes}
-                    </div>
-                  )}
-                </div>
+        {filteredScans.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <div className="text-muted-foreground">
+                {scans.length === 0 ? "No scans found. Start scanning to see your history!" : "No scans match your current filters."}
               </div>
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          filteredScans.map((scan) => (
+            <Card key={scan.id} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  {/* Dish Image */}
+                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted">
+                    {scan.kanpla_items?.image_url ? (
+                      <img 
+                        src={scan.kanpla_items.image_url} 
+                        alt={scan.kanpla_items.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20" />
+                    )}
+                  </div>
 
-        {filteredScans.length === 0 && (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">No scans found matching your criteria.</p>
-            </CardContent>
-          </Card>
+                  {/* Scan Details */}
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h3 className="font-semibold">{scan.kanpla_items?.name || `Dish ${scan.kanpla_item_id}`}</h3>
+                        <p className="text-sm text-muted-foreground">{scan.kanpla_items?.category || 'Unknown Category'}</p>
+                      </div>
+                      <Badge variant={getConfidenceBadgeVariant(scan.confidence) as any}>
+                        {scan.confidence} confidence
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <div className="text-muted-foreground">Portion</div>
+                        <div className="font-medium">{getPortionLabel(scan.portion_preset)}</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Weight</div>
+                        <div className="font-medium">{scan.estimated_grams}g</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Calories</div>
+                        <div className="font-medium">{scan.scaled_calories} kcal</div>
+                      </div>
+                      <div>
+                        <div className="text-muted-foreground">Macros</div>
+                        <div className="font-medium">
+                          P:{scan.scaled_protein}g C:{scan.scaled_carbs}g F:{scan.scaled_fat}g
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                      <div className="text-xs text-muted-foreground">
+                        {format(new Date(scan.scan_timestamp), 'MMM d, yyyy HH:mm')} • {scan.canteen_location}
+                      </div>
+                      {scan.notes && (
+                        <div className="text-xs italic text-muted-foreground max-w-48 truncate">
+                          "{scan.notes}"
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
         )}
       </div>
     </div>

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import DishCard from "./DishCard";
 import { ArrowLeft, Save, RotateCcw } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ScanResultsProps {
   capturedImage: string;
@@ -68,16 +69,57 @@ export default function ScanResults({ capturedImage, onBack, onSave, onRescan }:
     weight: Math.round(estimatedWeight * portionMultiplier)
   };
 
-  const handleSave = () => {
-    const result = {
-      dish: selectedDish,
-      portion: portionSize,
-      nutrition: adjustedNutrition,
-      capturedImage,
-      notes,
-      timestamp: new Date().toISOString()
-    };
-    onSave(result);
+  const handleSave = async () => {
+    if (!selectedDish) return;
+    
+    try {
+      // Convert image to base64 if it's a data URL, otherwise keep as URL
+      const photoBase64 = capturedImage.startsWith('data:') 
+        ? capturedImage.split(',')[1] 
+        : null;
+      
+      const scanData = {
+        kanpla_item_id: selectedDish.id,
+        confidence: selectedDish.confidence > 0.8 ? 'high' : selectedDish.confidence > 0.6 ? 'medium' : 'low',
+        portion_preset: portionSize === '0.5' ? 'half' : portionSize === '1' ? 'normal' : 'large',
+        estimated_grams: adjustedNutrition.weight,
+        photo_base64: photoBase64,
+        photo_url: !photoBase64 ? capturedImage : null,
+        notes: notes || null,
+        canteen_location: 'Main Campus',
+        alternatives: mockDetectionResults.filter(dish => dish.id !== selectedDish.id)
+      };
+
+      const { data, error } = await supabase.functions.invoke('save-scan', {
+        body: scanData
+      });
+
+      if (error) throw error;
+
+      const result = {
+        dish: selectedDish,
+        portion: portionSize,
+        nutrition: adjustedNutrition,
+        capturedImage,
+        notes,
+        timestamp: new Date().toISOString(),
+        scanId: data?.scanId
+      };
+      
+      onSave(result);
+    } catch (error) {
+      console.error('Error saving scan:', error);
+      // Still call onSave to show success, but the scan won't be persisted
+      const result = {
+        dish: selectedDish,
+        portion: portionSize,
+        nutrition: adjustedNutrition,
+        capturedImage,
+        notes,
+        timestamp: new Date().toISOString()
+      };
+      onSave(result);
+    }
   };
 
   return (

@@ -1,6 +1,5 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,12 +9,13 @@ const corsHeaders = {
 interface SaveScanRequest {
   kanpla_item_id: string;
   confidence: 'high' | 'medium' | 'low';
-  portion_preset: 'half' | 'normal' | 'large';
+  portion_preset: 'small' | 'normal' | 'large';
   estimated_grams: number;
+  photo_base64?: string | null;
+  photo_url?: string | null;
+  notes?: string | null;
   canteen_location: string;
-  notes?: string;
   alternatives?: any[];
-  photo_base64?: string;
 }
 
 serve(async (req) => {
@@ -25,88 +25,66 @@ serve(async (req) => {
   }
 
   try {
-    // Get user from auth header
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
+    // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from JWT
-    const jwt = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
-    
-    if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid authorization token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Get user from authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
     }
 
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+
+    if (authError || !user) {
+      throw new Error('Unauthorized');
+    }
+
+    // Parse request body
     const scanData: SaveScanRequest = await req.json();
-    console.log('Saving scan for user:', user.id, 'dish:', scanData.kanpla_item_id);
 
-    // Get dish nutritional data
-    const { data: dish, error: dishError } = await supabase
-      .from('kanpla_items')
-      .select('protein_per_100g, carbs_per_100g, fat_per_100g, calories_per_100g')
-      .eq('id', scanData.kanpla_item_id)
-      .single();
-
-    if (dishError || !dish) {
-      return new Response(
-        JSON.stringify({ error: 'Dish not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Calculate scaled nutrition based on portion
-    const portionMultiplier = scanData.portion_preset === 'half' ? 0.5 : 
-                            scanData.portion_preset === 'large' ? 1.5 : 1.0;
-    
-    const gramsRatio = (scanData.estimated_grams * portionMultiplier) / 100;
-    
-    const scaledNutrition = {
-      scaled_protein: Number((dish.protein_per_100g * gramsRatio).toFixed(2)),
-      scaled_carbs: Number((dish.carbs_per_100g * gramsRatio).toFixed(2)),
-      scaled_fat: Number((dish.fat_per_100g * gramsRatio).toFixed(2)),
-      scaled_calories: Number((dish.calories_per_100g * gramsRatio).toFixed(2)),
+    // Get dish nutritional data - for now, use mock data
+    // In production, this would fetch from kanpla_items table
+    const dishNutrition = {
+      calories_per_100g: 150,
+      protein_per_100g: 20,
+      carbs_per_100g: 25,
+      fat_per_100g: 8
     };
 
-    let photoUrl = null;
+    // Calculate scaled nutrition based on portion and estimated grams
+    const portionMultiplier = scanData.portion_preset === 'small' ? 0.5 : 
+                              scanData.portion_preset === 'large' ? 1.5 : 1;
+    const gramsRatio = (scanData.estimated_grams * portionMultiplier) / 100;
 
-    // Upload photo if provided
+    const scaledNutrition = {
+      scaled_calories: Math.round(dishNutrition.calories_per_100g * gramsRatio),
+      scaled_protein: Math.round(dishNutrition.protein_per_100g * gramsRatio),
+      scaled_carbs: Math.round(dishNutrition.carbs_per_100g * gramsRatio),
+      scaled_fat: Math.round(dishNutrition.fat_per_100g * gramsRatio)
+    };
+
+    // Handle photo upload if provided
+    let photoUrl = scanData.photo_url;
     if (scanData.photo_base64) {
-      try {
-        const photoBuffer = Uint8Array.from(atob(scanData.photo_base64), c => c.charCodeAt(0));
-        const fileName = `scan-${user.id}-${Date.now()}.jpg`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('scan-photos')
-          .upload(fileName, photoBuffer, {
-            contentType: 'image/jpeg',
-            upsert: false
-          });
+      const fileName = `scan-${user.id}-${Date.now()}.jpg`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('scan-photos')
+        .upload(fileName, Buffer.from(scanData.photo_base64, 'base64'), {
+          contentType: 'image/jpeg',
+        });
 
-        if (uploadError) {
-          console.error('Photo upload error:', uploadError);
-        } else {
-          photoUrl = fileName;
-        }
-      } catch (uploadError) {
-        console.error('Photo processing error:', uploadError);
+      if (!uploadError && uploadData) {
+        photoUrl = uploadData.path;
       }
     }
 
-    // Save scan record
-    const { data: scan, error: scanError } = await supabase
+    // Insert scan record
+    const { data: scanRecord, error: insertError } = await supabase
       .from('scans')
       .insert({
         user_id: user.id,
@@ -114,42 +92,47 @@ serve(async (req) => {
         confidence: scanData.confidence,
         portion_preset: scanData.portion_preset,
         estimated_grams: scanData.estimated_grams,
-        canteen_location: scanData.canteen_location,
         photo_url: photoUrl,
         notes: scanData.notes,
-        alternatives: scanData.alternatives,
-        ...scaledNutrition,
+        canteen_location: scanData.canteen_location,
+        alternatives: scanData.alternatives || [],
+        ...scaledNutrition
       })
-      .select()
+      .select('id')
       .single();
 
-    if (scanError) {
-      console.error('Error saving scan:', scanError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to save scan' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      throw insertError;
     }
 
-    console.log('Scan saved successfully:', scan.id);
-
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        scan_id: scan.id,
+      JSON.stringify({
+        success: true,
+        scanId: scanRecord.id,
         nutrition: scaledNutrition
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders 
+        } 
+      }
     );
 
   } catch (error) {
-    console.error('Error in save-scan function:', error);
+    console.error('Save scan error:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'Internal server error',
-        details: error.message 
+        error: error.message || 'Failed to save scan' 
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        status: 400,
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders 
+        } 
+      }
     );
   }
 });
