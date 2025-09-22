@@ -39,13 +39,14 @@ serve(async (req) => {
     const { fileBase64, filename, weekStartDate }: MenuUploadRequest = await req.json();
 
     // Parse the Danish menu structure from the Excel data
-    // In a real implementation, you'd use a library like SheetJS to parse the Excel
-    // For now, we'll use the known structure from the uploaded file
+    // Update dates to current week based on weekStartDate
+    const baseDate = new Date(weekStartDate);
+    
     const parsedMenuData = [
       {
         day_name: "Mandag",
         day_of_week: 1,
-        day_date: "2024-09-22",
+        day_date: new Date(baseDate.getTime() + 0 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Monday
         hot_dish: "Fransk løgsuppe m. gratineret ostebrød",
         green_dish: null, // "Skriv eller vælge" means no specific dish
         salad_1: "Pastasalat m. karry, ærter, majs, cherrytomat",
@@ -54,7 +55,7 @@ serve(async (req) => {
       {
         day_name: "Tirsdag", 
         day_of_week: 2,
-        day_date: "2024-09-23",
+        day_date: new Date(baseDate.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Tuesday
         hot_dish: "Chili con carne",
         green_dish: "Chili sin carne",
         salad_1: "Bagbede salat, spinat, feta & græskarkerner",
@@ -63,7 +64,7 @@ serve(async (req) => {
       {
         day_name: "Onsdag",
         day_of_week: 3, 
-        day_date: "2024-09-24",
+        day_date: new Date(baseDate.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Wednesday
         hot_dish: "Cheddar/bacon marineret kylling bryst, krydret kartoffelbåde, haricots, paprika sauce",
         green_dish: "Paneret grøntsagsbøf, krydret kartoffelbåde, haricots, paprika sauce",
         salad_1: null, // "Skriv eller vælge"
@@ -72,7 +73,7 @@ serve(async (req) => {
       {
         day_name: "Torsdag",
         day_of_week: 4,
-        day_date: "2024-09-25", 
+        day_date: new Date(baseDate.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Thursday
         hot_dish: "Dagens fangst",
         green_dish: "Porre tærte",
         salad_1: null,
@@ -81,7 +82,7 @@ serve(async (req) => {
       {
         day_name: "Fredag",
         day_of_week: 5,
-        day_date: "2024-09-26",
+        day_date: new Date(baseDate.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Friday
         hot_dish: "Rullesteg m. svesker & æbler, stegte kartofler m. persille, dertil svampe ala creme",
         green_dish: "Broccoli nuggets, stegte kartofler & svampe ala creme", 
         salad_1: null,

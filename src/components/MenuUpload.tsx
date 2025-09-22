@@ -9,7 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function MenuUpload() {
   const [file, setFile] = useState<File | null>(null);
-  const [weekStartDate, setWeekStartDate] = useState("");
+  const [weekStartDate, setWeekStartDate] = useState(() => {
+    // Default to Monday of current week
+    const today = new Date();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - today.getDay() + 1);
+    return monday.toISOString().split('T')[0];
+  });
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
@@ -74,6 +80,9 @@ export default function MenuUpload() {
       setWeekStartDate("");
       const fileInput = document.getElementById('menu-file') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
+
+      // Refresh the page to show updated menu
+      window.location.reload();
 
     } catch (error) {
       console.error('Upload error:', error);

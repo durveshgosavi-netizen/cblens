@@ -52,17 +52,7 @@ export default function ScanHistory() {
       
       let query = supabase
         .from('scans')
-        .select(`
-          *,
-          kanpla_items:kanpla_item_id (
-            name,
-            category,
-            image_url
-          ),
-          profiles:user_id (
-            full_name
-          )
-        `)
+        .select('*')
         .order('scan_timestamp', { ascending: false });
 
       if (confidenceFilter !== "all") {
@@ -110,8 +100,8 @@ export default function ScanHistory() {
   const exportToCSV = () => {
     const csvData = filteredScans.map(scan => ({
       Date: format(new Date(scan.scan_timestamp), 'yyyy-MM-dd HH:mm'),
-      Dish: scan.kanpla_items?.name || `Dish ${scan.kanpla_item_id}`,
-      Category: scan.kanpla_items?.category || 'Unknown',
+      Dish: `Dish from Menu`,
+      Category: 'Danish Cuisine',
       Confidence: scan.confidence,
       Portion: getPortionLabel(scan.portion_preset),
       'Weight (g)': scan.estimated_grams,
@@ -138,9 +128,8 @@ export default function ScanHistory() {
   };
 
   const filteredScans = scans.filter(scan =>
-    scan.kanpla_items?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    scan.kanpla_items?.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    scan.canteen_location.toLowerCase().includes(searchTerm.toLowerCase())
+    scan.canteen_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    searchTerm === ""
   );
 
   const getConfidenceBadgeVariant = (confidence: string) => {
@@ -264,23 +253,17 @@ export default function ScanHistory() {
                 <div className="flex items-center gap-4">
                   {/* Dish Image */}
                   <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted">
-                    {scan.kanpla_items?.image_url ? (
-                      <img 
-                        src={scan.kanpla_items.image_url} 
-                        alt={scan.kanpla_items.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20" />
-                    )}
+                    <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                      <span className="text-xs text-muted-foreground">🍽️</span>
+                    </div>
                   </div>
 
                   {/* Scan Details */}
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h3 className="font-semibold">{scan.kanpla_items?.name || `Dish ${scan.kanpla_item_id}`}</h3>
-                        <p className="text-sm text-muted-foreground">{scan.kanpla_items?.category || 'Unknown Category'}</p>
+                        <h3 className="font-semibold">Danish Menu Item</h3>
+                        <p className="text-sm text-muted-foreground">Danish Cuisine</p>
                       </div>
                       <Badge variant={getConfidenceBadgeVariant(scan.confidence) as any}>
                         {scan.confidence} confidence
