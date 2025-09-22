@@ -38,7 +38,9 @@ const Index = () => {
 
   const handleStartScan = () => {
     console.log("Scan button clicked, changing state to camera");
+    console.log("Current state before change:", currentState);
     setCurrentState("camera");
+    console.log("State should now be camera");
   };
 
   const handleCaptureComplete = (imageUrl: string) => {
@@ -67,6 +69,7 @@ const Index = () => {
     setCurrentState("menu");
   };
 
+  // Handle camera and results states (these should override the normal tab interface)
   if (currentState === "camera") {
     return (
       <CameraInterface 
@@ -86,6 +89,8 @@ const Index = () => {
       />
     );
   }
+
+  // Normal tabbed interface when currentState is "menu"
 
   return (
     <div className="min-h-screen bg-background">
