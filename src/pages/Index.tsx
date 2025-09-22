@@ -43,6 +43,7 @@ const Index = () => {
     console.log("Scan button clicked, changing state to camera");
     console.log("Current state before change:", currentState);
     setCurrentState("camera");
+    setActiveTab("menu"); // Ensure tab state doesn't interfere
     console.log("State should now be camera");
   };
 
