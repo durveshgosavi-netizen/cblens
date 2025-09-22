@@ -1,74 +1,67 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import DishCard from "./DishCard";
-import { Camera, Calendar, MapPin, Utensils } from "lucide-react";
+import { Camera, Calendar, MapPin, Utensils, ChefHat } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MenuViewProps {
   onStartScan: () => void;
 }
 
-// Mock menu data
-const mockMenuData = {
-  date: "Today, March 15",
-  location: "Canteen North Wing",
-  dishes: [
-    {
-      id: "1",
-      name: "Grilled Salmon with Quinoa",
-      category: "Main Course",
-      protein: 32,
-      carbs: 28,
-      fat: 14,
-      calories: 340,
-      allergens: ["fish"],
-      image: "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
-    },
-    {
-      id: "2", 
-      name: "Mediterranean Bowl",
-      category: "Healthy Choice",
-      protein: 18,
-      carbs: 42,
-      fat: 12,
-      calories: 320,
-      allergens: ["nuts"],
-      image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
-    },
-    {
-      id: "3",
-      name: "Chicken Tikka Masala",
-      category: "International",
-      protein: 28,
-      carbs: 35,
-      fat: 16,
-      calories: 380,
-      allergens: ["dairy"],
-      image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
-    },
-    {
-      id: "4",
-      name: "Vegan Buddha Bowl",
-      category: "Plant-Based",
-      protein: 15,
-      carbs: 38,
-      fat: 10,
-      calories: 280,
-      allergens: [],
-      image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
-    }
-  ]
-};
+interface WeeklyMenuData {
+  id: string;
+  day_name: string;
+  day_date: string;
+  hot_dish: string | null;
+  green_dish: string | null;
+  salad_1: string | null;
+  salad_2: string | null;
+}
 
 export default function MenuView({ onStartScan }: MenuViewProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  
-  const categories = ["all", "Main Course", "Healthy Choice", "International", "Plant-Based"];
-  
-  const filteredDishes = selectedCategory === "all" 
-    ? mockMenuData.dishes 
-    : mockMenuData.dishes.filter(dish => dish.category === selectedCategory);
+  const [todaysMenu, setTodaysMenu] = useState<WeeklyMenuData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTodaysMenu();
+  }, []);
+
+  const fetchTodaysMenu = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('weekly_menus')
+        .select('*')
+        .eq('day_date', today)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching menu:', error);
+      }
+
+      setTodaysMenu(data);
+    } catch (error) {
+      console.error('Error fetching menu:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getMenuDishes = () => {
+    if (!todaysMenu) return [];
+    
+    return [
+      { type: "Hot Dish", name: todaysMenu.hot_dish, category: "Main Course" },
+      { type: "Green Dish", name: todaysMenu.green_dish, category: "Vegetarian" },
+      { type: "Salad 1", name: todaysMenu.salad_1, category: "Fresh" },
+      { type: "Salad 2", name: todaysMenu.salad_2, category: "Fresh" }
+    ].filter(dish => dish.name);
+  };
+
+  const menuDishes = getMenuDishes();
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,11 +80,17 @@ export default function MenuView({ onStartScan }: MenuViewProps) {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-primary" />
-                  <span className="font-medium">{mockMenuData.date}</span>
+                  <span className="font-medium">
+                    {new Date().toLocaleDateString('en-GB', { 
+                      weekday: 'long', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-3 w-3" />
-                  <span>{mockMenuData.location}</span>
+                  <span>Main Campus Canteen</span>
                 </div>
               </div>
               
@@ -104,7 +103,7 @@ export default function MenuView({ onStartScan }: MenuViewProps) {
         </div>
       </div>
 
-      {/* Category Filter */}
+      {/* Menu Display */}
       <div className="px-6 -mt-4 mb-6">
         <Card className="shadow-card">
           <CardHeader className="pb-3">
@@ -112,35 +111,47 @@ export default function MenuView({ onStartScan }: MenuViewProps) {
               <Utensils className="h-4 w-4 text-primary" />
               <span className="font-medium">Today's Menu</span>
               <Badge variant="secondary" className="ml-auto">
-                {filteredDishes.length} dishes
+                {loading ? "..." : `${menuDishes.length} dishes`}
               </Badge>
             </div>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {categories.map((category) => (
-                <Button
-                  key={category}
-                  variant={selectedCategory === category ? "default" : "soft"}
-                  size="sm"
-                  className="whitespace-nowrap"
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category === "all" ? "All Dishes" : category}
-                </Button>
-              ))}
-            </div>
+            {loading ? (
+              <div className="text-center text-muted-foreground py-4">
+                Loading today's menu...
+              </div>
+            ) : menuDishes.length === 0 ? (
+              <div className="text-center py-6 space-y-3">
+                <ChefHat className="h-12 w-12 mx-auto text-muted-foreground" />
+                <div>
+                  <h3 className="font-semibold text-foreground">No menu available</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Menu for today has not been uploaded yet
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {menuDishes.map((dish, index) => (
+                  <div 
+                    key={index} 
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+                  >
+                    <div>
+                      <h4 className="font-medium text-foreground line-clamp-1">
+                        {dish.name}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">{dish.category}</p>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {dish.type}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
-      </div>
-
-      {/* Dishes Grid */}
-      <div className="px-6 pb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredDishes.map((dish) => (
-            <DishCard key={dish.id} dish={dish} />
-          ))}
-        </div>
       </div>
     </div>
   );

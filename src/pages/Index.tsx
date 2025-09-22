@@ -5,10 +5,11 @@ import ScanResults from "@/components/ScanResults";
 import AuthPage from "@/components/AuthPage";
 import ScanHistory from "@/components/ScanHistory";
 import Analytics from "@/components/Analytics";
+import MenuUpload from "@/components/MenuUpload";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, History, BarChart3, Camera } from "lucide-react";
+import { LogOut, History, BarChart3, Camera, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type AppState = "menu" | "camera" | "results";
@@ -118,15 +119,17 @@ const Index = () => {
 
       <div className="container mx-auto p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="menu"><Camera className="h-4 w-4 mr-2" />Menu</TabsTrigger>
             <TabsTrigger value="history"><History className="h-4 w-4 mr-2" />History</TabsTrigger>
             <TabsTrigger value="analytics"><BarChart3 className="h-4 w-4 mr-2" />Analytics</TabsTrigger>
+            <TabsTrigger value="upload"><Upload className="h-4 w-4 mr-2" />Upload</TabsTrigger>
           </TabsList>
 
           <TabsContent value="menu"><MenuView onStartScan={handleStartScan} /></TabsContent>
           <TabsContent value="history"><ScanHistory /></TabsContent>
           <TabsContent value="analytics"><Analytics /></TabsContent>
+          <TabsContent value="upload"><MenuUpload /></TabsContent>
         </Tabs>
       </div>
     </div>

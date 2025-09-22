@@ -233,6 +233,54 @@ export type Database = {
           },
         ]
       }
+      weekly_menus: {
+        Row: {
+          created_at: string
+          day_date: string
+          day_name: string
+          day_of_week: number
+          green_dish: string | null
+          hot_dish: string | null
+          id: string
+          salad_1: string | null
+          salad_2: string | null
+          updated_at: string
+          upload_filename: string | null
+          uploaded_by: string | null
+          week_start_date: string
+        }
+        Insert: {
+          created_at?: string
+          day_date: string
+          day_name: string
+          day_of_week: number
+          green_dish?: string | null
+          hot_dish?: string | null
+          id?: string
+          salad_1?: string | null
+          salad_2?: string | null
+          updated_at?: string
+          upload_filename?: string | null
+          uploaded_by?: string | null
+          week_start_date: string
+        }
+        Update: {
+          created_at?: string
+          day_date?: string
+          day_name?: string
+          day_of_week?: number
+          green_dish?: string | null
+          hot_dish?: string | null
+          id?: string
+          salad_1?: string | null
+          salad_2?: string | null
+          updated_at?: string
+          upload_filename?: string | null
+          uploaded_by?: string | null
+          week_start_date?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
