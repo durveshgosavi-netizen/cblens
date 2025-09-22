@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import MenuView from "@/components/MenuView";
 import CameraInterface from "@/components/CameraInterface";
 import ScanResults from "@/components/ScanResults";
@@ -23,6 +23,11 @@ const Index = () => {
   // Debug logging for state changes
   console.log("Index component rendering, currentState:", currentState);
 
+  // Track state changes
+  useEffect(() => {
+    console.log("State changed to:", currentState);
+  }, [currentState]);
+
   const handleAuthSuccess = () => {
     // User will be redirected automatically
   };
@@ -39,13 +44,12 @@ const Index = () => {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  const handleStartScan = () => {
+  const handleStartScan = useCallback(() => {
     console.log("Scan button clicked, changing state to camera");
     console.log("Current state before change:", currentState);
     setCurrentState("camera");
-    setActiveTab("menu"); // Ensure tab state doesn't interfere
     console.log("State should now be camera");
-  };
+  }, [currentState]);
 
   const handleCaptureComplete = (imageUrl: string) => {
     setCapturedImage(imageUrl);
