@@ -37,6 +37,7 @@ const Index = () => {
   }
 
   const handleStartScan = () => {
+    console.log("Scan button clicked, changing state to camera");
     setCurrentState("camera");
   };
 
