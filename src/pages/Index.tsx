@@ -107,7 +107,14 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="bg-gradient-to-br from-primary-glow to-fresh-mint p-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">CB Lens</h1>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/src/assets/logo-cbk.png" 
+              alt="Cheval Blanc Kantiner" 
+              className="w-10 h-10 object-contain"
+            />
+            <h1 className="text-2xl font-bold text-foreground">CB Lens</h1>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-sm">{profile?.full_name}</span>
             <Button variant="ghost" size="sm" onClick={signOut}>

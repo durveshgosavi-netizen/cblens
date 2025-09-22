@@ -9,7 +9,7 @@ const corsHeaders = {
 interface SaveScanRequest {
   kanpla_item_id: string;
   confidence: 'high' | 'medium' | 'low';
-  portion_preset: 'small' | 'normal' | 'large';
+  portion_preset: 'half' | 'normal' | 'large';
   estimated_grams: number;
   photo_base64?: string | null;
   photo_url?: string | null;
@@ -47,9 +47,15 @@ serve(async (req) => {
     // Parse request body
     const scanData: SaveScanRequest = await req.json();
 
-    // Get dish nutritional data - for now, use mock data
-    // In production, this would fetch from kanpla_items table
-    const dishNutrition = {
+    // Get actual dish nutritional data from kanpla_items table
+    const { data: dishData, error: dishError } = await supabase
+      .from('kanpla_items')
+      .select('calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g')
+      .eq('kanpla_item_id', scanData.kanpla_item_id)
+      .single();
+
+    // Fallback to mock data if dish not found
+    const dishNutrition = dishData || {
       calories_per_100g: 150,
       protein_per_100g: 20,
       carbs_per_100g: 25,
@@ -57,15 +63,15 @@ serve(async (req) => {
     };
 
     // Calculate scaled nutrition based on portion and estimated grams
-    const portionMultiplier = scanData.portion_preset === 'small' ? 0.5 : 
+    const portionMultiplier = scanData.portion_preset === 'half' ? 0.5 : 
                               scanData.portion_preset === 'large' ? 1.5 : 1;
     const gramsRatio = (scanData.estimated_grams * portionMultiplier) / 100;
 
     const scaledNutrition = {
-      scaled_calories: Math.round(dishNutrition.calories_per_100g * gramsRatio),
-      scaled_protein: Math.round(dishNutrition.protein_per_100g * gramsRatio),
-      scaled_carbs: Math.round(dishNutrition.carbs_per_100g * gramsRatio),
-      scaled_fat: Math.round(dishNutrition.fat_per_100g * gramsRatio)
+      scaled_calories: Math.round(Number(dishNutrition.calories_per_100g || 150) * gramsRatio),
+      scaled_protein: Math.round(Number(dishNutrition.protein_per_100g || 20) * gramsRatio),
+      scaled_carbs: Math.round(Number(dishNutrition.carbs_per_100g || 25) * gramsRatio),
+      scaled_fat: Math.round(Number(dishNutrition.fat_per_100g || 8) * gramsRatio)
     };
 
     // Handle photo upload if provided
@@ -83,18 +89,52 @@ serve(async (req) => {
       }
     }
 
-    // Generate a proper UUID for kanpla_item_id since we're using mock data
-    const mockKanplaItemId = crypto.randomUUID();
+    // Get or create the kanpla_item UUID from the string ID
+    let kanplaItemUuid = scanData.kanpla_item_id;
+    
+    // If it's a string ID, try to find the corresponding UUID
+    if (!scanData.kanpla_item_id.includes('-')) {
+      const { data: existingItem } = await supabase
+        .from('kanpla_items')
+        .select('id')
+        .eq('kanpla_item_id', scanData.kanpla_item_id)
+        .single();
+      
+      if (existingItem) {
+        kanplaItemUuid = existingItem.id;
+      } else {
+        // Create a new kanpla_item entry if it doesn't exist
+        const { data: newItem, error: createError } = await supabase
+          .from('kanpla_items')
+          .insert({
+            kanpla_item_id: scanData.kanpla_item_id,
+            name: `Danish Dish (${scanData.kanpla_item_id})`,
+            category: 'Danish Cuisine',
+            calories_per_100g: dishNutrition.calories_per_100g,
+            protein_per_100g: dishNutrition.protein_per_100g,
+            carbs_per_100g: dishNutrition.carbs_per_100g,
+            fat_per_100g: dishNutrition.fat_per_100g
+          })
+          .select('id')
+          .single();
+        
+        if (!createError && newItem) {
+          kanplaItemUuid = newItem.id;
+        } else {
+          kanplaItemUuid = crypto.randomUUID();
+        }
+      }
+    }
 
     // Insert scan record
     const { data: scanRecord, error: insertError } = await supabase
       .from('scans')
       .insert({
         user_id: user.id,
-        kanpla_item_id: mockKanplaItemId, // Use generated UUID instead of mock string ID
+        kanpla_item_id: kanplaItemUuid,
         confidence: scanData.confidence,
         portion_preset: scanData.portion_preset,
-        estimated_grams: scanData.estimated_grams,
+        estimated_grams: Math.round(scanData.estimated_grams * portionMultiplier),
         photo_url: photoUrl,
         notes: scanData.notes,
         canteen_location: scanData.canteen_location,

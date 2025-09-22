@@ -89,10 +89,10 @@ export default function ScanResults({ capturedImage, onBack, onSave, onRescan }:
   const portionMultiplier = parseFloat(portionSize);
   
   const adjustedNutrition = selectedDish ? {
-    protein: Math.round(selectedDish.protein * portionMultiplier),
-    carbs: Math.round(selectedDish.carbs * portionMultiplier), 
-    fat: Math.round(selectedDish.fat * portionMultiplier),
-    calories: Math.round(selectedDish.calories * portionMultiplier),
+    protein: Math.round((selectedDish.protein || 0) * (estimatedWeight / 100) * portionMultiplier),
+    carbs: Math.round((selectedDish.carbs || 0) * (estimatedWeight / 100) * portionMultiplier), 
+    fat: Math.round((selectedDish.fat || 0) * (estimatedWeight / 100) * portionMultiplier),
+    calories: Math.round((selectedDish.calories || 0) * (estimatedWeight / 100) * portionMultiplier),
     weight: Math.round(estimatedWeight * portionMultiplier)
   } : { protein: 0, carbs: 0, fat: 0, calories: 0, weight: 0 };
 
