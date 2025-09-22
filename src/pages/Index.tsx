@@ -20,6 +20,9 @@ const Index = () => {
   const [capturedImage, setCapturedImage] = useState<string>("");
   const { toast } = useToast();
 
+  // Debug logging for state changes
+  console.log("Index component rendering, currentState:", currentState);
+
   const handleAuthSuccess = () => {
     // User will be redirected automatically
   };
