@@ -88,13 +88,7 @@ serve(async (req) => {
       }
     ];
 
-    // Clear existing menu for this week
-    await supabase
-      .from('weekly_menus')
-      .delete()
-      .eq('week_start_date', weekStartDate);
-
-    // Insert new menu data
+    // Insert new menu data with mapped records
     const menuRecords = mockMenuData.map(item => ({
       week_start_date: weekStartDate,
       day_of_week: item.day_of_week,
@@ -108,9 +102,23 @@ serve(async (req) => {
       upload_filename: filename
     }));
 
+    // Clear existing menu for this week first
+    const { error: deleteError } = await supabase
+      .from('weekly_menus')
+      .delete()
+      .eq('week_start_date', weekStartDate);
+
+    if (deleteError) {
+      console.error('Delete error:', deleteError);
+    }
+
+    // Insert new menu data with upsert to handle duplicates
     const { data, error } = await supabase
       .from('weekly_menus')
-      .insert(menuRecords)
+      .upsert(menuRecords, {
+        onConflict: 'day_date,hot_dish',
+        ignoreDuplicates: false
+      })
       .select();
 
     if (error) {

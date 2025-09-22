@@ -83,12 +83,15 @@ serve(async (req) => {
       }
     }
 
+    // Generate a proper UUID for kanpla_item_id since we're using mock data
+    const mockKanplaItemId = crypto.randomUUID();
+
     // Insert scan record
     const { data: scanRecord, error: insertError } = await supabase
       .from('scans')
       .insert({
         user_id: user.id,
-        kanpla_item_id: scanData.kanpla_item_id,
+        kanpla_item_id: mockKanplaItemId, // Use generated UUID instead of mock string ID
         confidence: scanData.confidence,
         portion_preset: scanData.portion_preset,
         estimated_grams: scanData.estimated_grams,
