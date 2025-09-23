@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Download, Search, Filter, Calendar } from "lucide-react";
+import { Download, Search, Filter, Calendar, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
@@ -178,6 +178,32 @@ export default function ScanHistory() {
     }
   };
 
+  const deleteScan = async (scanId: string) => {
+    try {
+      const { error } = await supabase
+        .from('scans')
+        .delete()
+        .eq('id', scanId);
+
+      if (error) throw error;
+
+      // Remove the deleted scan from the local state
+      setScans(prevScans => prevScans.filter(scan => scan.id !== scanId));
+      
+      toast({
+        title: "Scan deleted",
+        description: "The scan entry has been successfully deleted.",
+      });
+    } catch (error) {
+      console.error('Error deleting scan:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete scan. Please try again.",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6 space-y-6">
@@ -345,11 +371,21 @@ export default function ScanHistory() {
                       <div className="text-xs text-muted-foreground">
                         {format(new Date(scan.scan_timestamp), 'MMM d, yyyy HH:mm')} • {scan.canteen_location}
                       </div>
-                      {scan.notes && (
-                        <div className="text-xs italic text-muted-foreground max-w-48 truncate">
-                          "{scan.notes}"
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {scan.notes && (
+                          <div className="text-xs italic text-muted-foreground max-w-48 truncate">
+                            "{scan.notes}"
+                          </div>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteScan(scan.id)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
