@@ -47,20 +47,40 @@ serve(async (req) => {
     // Parse request body
     const scanData: SaveScanRequest = await req.json();
 
-    // Get actual dish nutritional data from kanpla_items table
-    const { data: dishData, error: dishError } = await supabase
-      .from('kanpla_items')
-      .select('id, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g')
-      .eq('kanpla_item_id', scanData.kanpla_item_id)
-      .single();
+    // Handle menu items vs kanpla items
+    let dishNutrition;
+    let kanplaItemUuid = scanData.kanpla_item_id;
 
-    // Fallback to mock data if dish not found
-    const dishNutrition = dishData || {
-      calories_per_100g: 150,
-      protein_per_100g: 20,
-      carbs_per_100g: 25,
-      fat_per_100g: 8
-    };
+    if (scanData.kanpla_item_id.startsWith('menu-')) {
+      // This is a menu item, extract nutrition from the request data
+      const selectedDish = scanData.alternatives?.find(alt => alt.id === scanData.kanpla_item_id) || {};
+      dishNutrition = {
+        calories_per_100g: selectedDish.calories || 200,
+        protein_per_100g: selectedDish.protein || 15,
+        carbs_per_100g: selectedDish.carbs || 20,
+        fat_per_100g: selectedDish.fat || 8
+      };
+      
+      // For menu items, we'll use the string ID directly
+      kanplaItemUuid = scanData.kanpla_item_id;
+    } else {
+      // Get actual dish nutritional data from kanpla_items table
+      const { data: dishData, error: dishError } = await supabase
+        .from('kanpla_items')
+        .select('id, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g')
+        .eq('kanpla_item_id', scanData.kanpla_item_id)
+        .single();
+
+      dishNutrition = dishData || {
+        calories_per_100g: 150,
+        protein_per_100g: 20,
+        carbs_per_100g: 25,
+        fat_per_100g: 8
+      };
+
+      // Use the dish UUID if we found the dish, otherwise use the string ID
+      kanplaItemUuid = dishData?.id || scanData.kanpla_item_id;
+    }
 
     // Calculate scaled nutrition based on portion and estimated grams
     const portionMultiplier = scanData.portion_preset === 'half' ? 0.5 : 
@@ -102,9 +122,6 @@ serve(async (req) => {
         console.error('Photo processing error:', uploadError);
       }
     }
-
-    // Use the dish UUID directly if we found the dish, otherwise use the string ID
-    let kanplaItemUuid = dishData?.id || scanData.kanpla_item_id;
 
     // Insert scan record
     const { data: scanRecord, error: insertError } = await supabase

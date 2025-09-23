@@ -109,7 +109,7 @@ export default function ScanResults({ capturedImage, onBack, onSave, onRescan }:
         photo_url: !photoBase64 ? capturedImage : null,
         notes: notes || null,
         canteen_location: 'Main Campus',
-        alternatives: detectionResults.filter(dish => dish.id !== selectedDish.id)
+        alternatives: detectionResults // Include all dishes with nutrition data
       };
 
       const { data, error } = await supabase.functions.invoke('save-scan', {

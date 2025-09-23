@@ -50,58 +50,88 @@ serve(async (req) => {
 
     console.log(`Processing dish detection for date: ${targetDate}, location: ${canteenLocation}`);
 
-    // Fetch today's menu items from daily_menus and kanpla_items
-    const { data: menuItems, error: menuError } = await supabase
-      .from('daily_menus')
-      .select(`
-        kanpla_item_id,
-        kanpla_items (
-          kanpla_item_id,
-          name,
-          category,
-          protein_per_100g,
-          carbs_per_100g,
-          fat_per_100g,
-          calories_per_100g,
-          allergens,
-          image_url
-        )
-      `)
-      .eq('date', targetDate)
-      .eq('canteen_location', canteenLocation);
+    // Fetch today's menu from weekly_menus table
+    const { data: weeklyMenu, error: menuError } = await supabase
+      .from('weekly_menus')
+      .select('*')
+      .eq('day_date', targetDate);
 
     if (menuError) {
-      console.error('Error fetching menu items:', menuError);
+      console.error('Error fetching weekly menu:', menuError);
     }
 
-    // Get Danish dishes as fallback if no daily menu found
-    const { data: danishItems, error: danishError } = await supabase
-      .from('kanpla_items')
-      .select('*')
-      .like('kanpla_item_id', 'danish-%')
-      .limit(5);
+    console.log(`Found weekly menu:`, weeklyMenu);
 
-    if (danishError) {
-      console.error('Error fetching Danish items:', danishError);
-    }
-
-    // Combine menu items with fallback Danish dishes
+    // Convert weekly menu dishes to detection format
     let availableDishes = [];
 
-    // Add today's menu items
-    if (menuItems?.length) {
-      availableDishes = menuItems
-        .filter(item => item.kanpla_items)
-        .map(item => item.kanpla_items)
-        .filter(Boolean);
+    if (weeklyMenu?.length > 0) {
+      const menu = weeklyMenu[0];
+      const dishes = [];
+      
+      // Add hot dish
+      if (menu.hot_dish) {
+        dishes.push({
+          kanpla_item_id: `menu-hot-${targetDate}`,
+          name: menu.hot_dish,
+          category: "Main Course",
+          protein_per_100g: 22,
+          carbs_per_100g: 15,
+          fat_per_100g: 8,
+          calories_per_100g: 210,
+          allergens: [],
+          image_url: null
+        });
+      }
+
+      // Add green dish
+      if (menu.green_dish) {
+        dishes.push({
+          kanpla_item_id: `menu-green-${targetDate}`,
+          name: menu.green_dish,
+          category: "Vegetarian",
+          protein_per_100g: 15,
+          carbs_per_100g: 20,
+          fat_per_100g: 6,
+          calories_per_100g: 180,
+          allergens: [],
+          image_url: null
+        });
+      }
+
+      // Add salads
+      if (menu.salad_1) {
+        dishes.push({
+          kanpla_item_id: `menu-salad1-${targetDate}`,
+          name: menu.salad_1,
+          category: "Salad",
+          protein_per_100g: 8,
+          carbs_per_100g: 10,
+          fat_per_100g: 12,
+          calories_per_100g: 150,
+          allergens: menu.salad_1.toLowerCase().includes('feta') ? ['dairy'] : [],
+          image_url: null
+        });
+      }
+
+      if (menu.salad_2) {
+        dishes.push({
+          kanpla_item_id: `menu-salad2-${targetDate}`,
+          name: menu.salad_2,
+          category: "Salad",
+          protein_per_100g: 10,
+          carbs_per_100g: 8,
+          fat_per_100g: 15,
+          calories_per_100g: 180,
+          allergens: menu.salad_2.toLowerCase().includes('caesar') ? ['dairy', 'eggs'] : [],
+          image_url: null
+        });
+      }
+
+      availableDishes = dishes;
     }
 
-    // Add Danish fallback dishes if we have less than 3 items
-    if (availableDishes.length < 3 && danishItems?.length) {
-      const remainingSlots = 3 - availableDishes.length;
-      const additionalDishes = danishItems.slice(0, remainingSlots);
-      availableDishes = [...availableDishes, ...additionalDishes];
-    }
+    console.log(`Available dishes for detection:`, availableDishes.map(d => d.name));
 
     // Mock AI detection logic - In production, this would analyze the actual image
     // For now, we'll simulate realistic detection with varying confidence scores
@@ -128,15 +158,15 @@ serve(async (req) => {
     // Fallback if no dishes found
     if (detectedDishes.length === 0) {
       detectedDishes.push({
-        id: "danish-fransk-logsuppe",
-        name: "Fransk løgsuppe m. gratineret ostebrød",
-        category: "Main Course",
-        protein: 8,
-        carbs: 25,
-        fat: 12,
-        calories: 220,
-        allergens: ["dairy", "gluten"],
-        confidence: 0.75,
+        id: "fallback-dish",
+        name: "No menu items found for today",
+        category: "Unknown",
+        protein: 15,
+        carbs: 20,
+        fat: 8,
+        calories: 200,
+        allergens: [],
+        confidence: 0.1,
         image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
       });
     }
