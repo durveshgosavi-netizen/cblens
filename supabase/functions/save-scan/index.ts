@@ -151,6 +151,16 @@ serve(async (req) => {
       throw insertError;
     }
 
+    // Trigger achievements processing asynchronously
+    try {
+      await supabase.functions.invoke('process-achievements', {
+        body: { user_id: user.id }
+      });
+    } catch (achievementError) {
+      console.error('Achievement processing error:', achievementError);
+      // Don't fail the scan save if achievements fail
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
