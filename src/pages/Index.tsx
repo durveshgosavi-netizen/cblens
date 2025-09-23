@@ -6,6 +6,7 @@ import AuthPage from "@/components/AuthPage";
 import ScanHistory from "@/components/ScanHistory";
 import Analytics from "@/components/Analytics";
 import MenuUpload from "@/components/MenuUpload";
+import LocationSelector from "@/components/LocationSelector";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +23,7 @@ const Index = () => {
   const [currentState, setCurrentState] = useState<AppState>("menu");
   const [activeTab, setActiveTab] = useState("menu");
   const [capturedImage, setCapturedImage] = useState<string>("");
+  const [selectedLocation, setSelectedLocation] = useState("Main Campus Canteen");
   const {
     toast
   } = useToast();
@@ -101,7 +103,11 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-6 space-y-6">
+        <LocationSelector 
+          selectedLocation={selectedLocation}
+          onLocationChange={setSelectedLocation}
+        />
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="menu"><Camera className="h-4 w-4 mr-2" />Menu</TabsTrigger>
@@ -110,7 +116,7 @@ const Index = () => {
             <TabsTrigger value="upload"><Upload className="h-4 w-4 mr-2" />Upload</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="menu"><MenuView onStartScan={handleStartScan} /></TabsContent>
+          <TabsContent value="menu"><MenuView onStartScan={handleStartScan} selectedLocation={selectedLocation} /></TabsContent>
           <TabsContent value="history"><ScanHistory /></TabsContent>
           <TabsContent value="analytics"><Analytics /></TabsContent>
           <TabsContent value="upload"><MenuUpload /></TabsContent>

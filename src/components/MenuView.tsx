@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface MenuViewProps {
   onStartScan: () => void;
+  selectedLocation: string;
 }
 
 interface WeeklyMenuData {
@@ -20,7 +21,7 @@ interface WeeklyMenuData {
   salad_2: string | null;
 }
 
-export default function MenuView({ onStartScan }: MenuViewProps) {
+export default function MenuView({ onStartScan, selectedLocation }: MenuViewProps) {
   const [todaysMenu, setTodaysMenu] = useState<WeeklyMenuData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -90,7 +91,7 @@ export default function MenuView({ onStartScan }: MenuViewProps) {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-3 w-3" />
-                  <span>Main Campus Canteen</span>
+                  <span>{selectedLocation}</span>
                 </div>
               </div>
               
