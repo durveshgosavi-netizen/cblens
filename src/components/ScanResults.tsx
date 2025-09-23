@@ -3,8 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import DishCard from "./DishCard";
+import MealRating from "./MealRating";
 import { ArrowLeft, Save, RotateCcw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface ScanResultsProps {
   capturedImage: string;
@@ -60,6 +62,9 @@ export default function ScanResults({ capturedImage, onBack, onSave, onRescan }:
   const [estimatedWeight, setEstimatedWeight] = useState(250);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showRating, setShowRating] = useState(false);
+  const [savedScanId, setSavedScanId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadDetectionResults();
@@ -117,31 +122,48 @@ export default function ScanResults({ capturedImage, onBack, onSave, onRescan }:
 
       if (error) throw error;
 
-      const result = {
-        dish: selectedDish,
-        portion: portionSize,
-        nutrition: adjustedNutrition,
-        capturedImage,
-        notes,
-        timestamp: new Date().toISOString(),
-        scanId: data?.scanId
-      };
-      
-      onSave(result);
+      // Store scan ID for rating and show rating component
+      setSavedScanId(data?.scanId);
+      setShowRating(true);
     } catch (error) {
       console.error('Error saving scan:', error);
-      // Still call onSave to show success, but the scan won't be persisted
-      const result = {
-        dish: selectedDish,
-        portion: portionSize,
-        nutrition: adjustedNutrition,
-        capturedImage,
-        notes,
-        timestamp: new Date().toISOString()
-      };
-      onSave(result);
+      toast({
+        title: "Error saving scan",
+        description: "There was a problem saving your scan. Please try again.",
+        variant: "destructive"
+      });
     }
   };
+
+  const handleRatingSubmitted = () => {
+    setShowRating(false);
+    const result = {
+      dish: selectedDish,
+      portion: portionSize,
+      nutrition: adjustedNutrition,
+      capturedImage,
+      notes,
+      timestamp: new Date().toISOString(),
+      scanId: savedScanId
+    };
+    onSave(result);
+  };
+
+  // Show rating component if we just saved a scan
+  if (showRating && savedScanId && selectedDish) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-md mx-auto space-y-6">
+          <MealRating
+            scanId={savedScanId}
+            kanplaItemId={selectedDish.id}
+            dishName={selectedDish.name}
+            onRatingSubmitted={handleRatingSubmitted}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

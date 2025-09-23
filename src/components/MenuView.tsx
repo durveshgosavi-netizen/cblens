@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import DishCard from "./DishCard";
-import { Camera, Calendar, MapPin, Utensils, ChefHat } from "lucide-react";
+import DailyRecommendations from "./DailyRecommendations";
+import { Camera, Calendar, MapPin, Utensils, ChefHat, Crown, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface MenuViewProps {
@@ -21,13 +22,22 @@ interface WeeklyMenuData {
   salad_2: string | null;
 }
 
+interface ChefsChoice {
+  id: string;
+  kanpla_item_id: string;
+  description: string;
+  chef_notes: string;
+}
+
 export default function MenuView({ onStartScan, selectedLocation }: MenuViewProps) {
   const [todaysMenu, setTodaysMenu] = useState<WeeklyMenuData | null>(null);
+  const [chefsChoice, setChefsChoice] = useState<ChefsChoice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchTodaysMenu();
-  }, []);
+    fetchChefsChoice();
+  }, [selectedLocation]);
 
   const fetchTodaysMenu = async () => {
     try {
@@ -51,6 +61,26 @@ export default function MenuView({ onStartScan, selectedLocation }: MenuViewProp
     }
   };
 
+  const fetchChefsChoice = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error } = await supabase
+        .from('chefs_choice')
+        .select('*')
+        .eq('canteen_location', selectedLocation)
+        .eq('featured_date', today);
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching chef\'s choice:', error);
+      }
+
+      setChefsChoice(data || []);
+    } catch (error) {
+      console.error('Error fetching chef\'s choice:', error);
+    }
+  };
+
   const getMenuDishes = () => {
     if (!todaysMenu) return [];
     
@@ -60,6 +90,12 @@ export default function MenuView({ onStartScan, selectedLocation }: MenuViewProp
       { type: "Salad 1", name: todaysMenu.salad_1, category: "Fresh" },
       { type: "Salad 2", name: todaysMenu.salad_2, category: "Fresh" }
     ].filter(dish => dish.name);
+  };
+
+  const isChefChoice = (dishName: string) => {
+    return chefsChoice.some(choice => 
+      choice.description?.toLowerCase().includes(dishName?.toLowerCase())
+    );
   };
 
   const menuDishes = getMenuDishes();
@@ -104,6 +140,47 @@ export default function MenuView({ onStartScan, selectedLocation }: MenuViewProp
         </div>
       </div>
 
+      {/* Chef's Choice Section */}
+      {chefsChoice.length > 0 && (
+        <div className="px-6 -mt-4 mb-6">
+          <Card className="shadow-card border-2 border-yellow-200 bg-gradient-to-br from-yellow-50 to-orange-50">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-yellow-600" />
+                <span className="font-bold text-yellow-800">Chef's Choice Today</span>
+                <Badge className="ml-auto bg-yellow-500 text-white">
+                  Special
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-3">
+                {chefsChoice.map((choice) => (
+                  <div 
+                    key={choice.id}
+                    className="p-4 rounded-lg bg-white/80 border border-yellow-200"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Star className="h-5 w-5 text-yellow-500 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-yellow-800 mb-1">
+                          {choice.description}
+                        </h4>
+                        {choice.chef_notes && (
+                          <p className="text-sm text-yellow-700 italic">
+                            "{choice.chef_notes}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Menu Display */}
       <div className="px-6 -mt-4 mb-6">
         <Card className="shadow-card">
@@ -136,23 +213,44 @@ export default function MenuView({ onStartScan, selectedLocation }: MenuViewProp
                 {menuDishes.map((dish, index) => (
                   <div 
                     key={index} 
-                    className="flex items-center justify-between p-3 rounded-lg bg-muted/30"
+                    className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                      isChefChoice(dish.name || '') 
+                        ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200' 
+                        : 'bg-muted/30'
+                    }`}
                   >
-                    <div>
-                      <h4 className="font-medium text-foreground line-clamp-1">
-                        {dish.name}
-                      </h4>
-                      <p className="text-sm text-muted-foreground">{dish.category}</p>
+                    <div className="flex items-center gap-3">
+                      {isChefChoice(dish.name || '') && (
+                        <Crown className="h-4 w-4 text-yellow-500" />
+                      )}
+                      <div>
+                        <h4 className="font-medium text-foreground line-clamp-1">
+                          {dish.name}
+                        </h4>
+                        <p className="text-sm text-muted-foreground">{dish.category}</p>
+                      </div>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {dish.type}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {isChefChoice(dish.name || '') && (
+                        <Badge className="text-xs bg-yellow-500 text-white">
+                          Chef's Choice
+                        </Badge>
+                      )}
+                      <Badge variant="secondary" className="text-xs">
+                        {dish.type}
+                      </Badge>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Daily Recommendations */}
+      <div className="px-6 mb-6">
+        <DailyRecommendations />
       </div>
     </div>
   );

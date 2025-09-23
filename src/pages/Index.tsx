@@ -10,7 +10,8 @@ import LocationSelector from "@/components/LocationSelector";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, History, BarChart3, Camera, Upload } from "lucide-react";
+import { LogOut, History, BarChart3, Camera, Upload, User } from "lucide-react";
+import UserProfile from "@/components/UserProfile";
 import { useToast } from "@/hooks/use-toast";
 type AppState = "menu" | "camera" | "results";
 const Index = () => {
@@ -109,16 +110,18 @@ const Index = () => {
           onLocationChange={setSelectedLocation}
         />
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="menu"><Camera className="h-4 w-4 mr-2" />Menu</TabsTrigger>
             <TabsTrigger value="history"><History className="h-4 w-4 mr-2" />History</TabsTrigger>
             <TabsTrigger value="analytics"><BarChart3 className="h-4 w-4 mr-2" />Analytics</TabsTrigger>
+            <TabsTrigger value="profile"><User className="h-4 w-4 mr-2" />Profile</TabsTrigger>
             <TabsTrigger value="upload"><Upload className="h-4 w-4 mr-2" />Upload</TabsTrigger>
           </TabsList>
 
           <TabsContent value="menu"><MenuView onStartScan={handleStartScan} selectedLocation={selectedLocation} /></TabsContent>
           <TabsContent value="history"><ScanHistory /></TabsContent>
           <TabsContent value="analytics"><Analytics /></TabsContent>
+          <TabsContent value="profile"><UserProfile /></TabsContent>
           <TabsContent value="upload"><MenuUpload /></TabsContent>
         </Tabs>
       </div>
