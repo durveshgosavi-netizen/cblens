@@ -42,14 +42,14 @@ export default function Analytics() {
         .from('scans')
         .select(`
           *,
-          kanpla_items (name, category),
-          profiles (full_name)
+          kanpla_items (name, category)
         `)
         .gte('scan_timestamp', startDate.toISOString())
         .lte('scan_timestamp', endDate.toISOString())
         .order('scan_timestamp', { ascending: false });
 
       if (error) {
+        console.error('Analytics fetch error:', error);
         toast({
           title: "Error",
           description: "Failed to fetch analytics data",
@@ -84,9 +84,10 @@ export default function Analytics() {
       // Top dishes
       const dishCounts: Record<string, { count: number; category: string }> = {};
       scans.forEach(scan => {
-        const dishName = scan.kanpla_items.name;
+        const dishName = scan.kanpla_items?.name || 'Unknown Dish';
+        const category = scan.kanpla_items?.category || 'Unknown Category';
         if (!dishCounts[dishName]) {
-          dishCounts[dishName] = { count: 0, category: scan.kanpla_items.category };
+          dishCounts[dishName] = { count: 0, category };
         }
         dishCounts[dishName].count++;
       });

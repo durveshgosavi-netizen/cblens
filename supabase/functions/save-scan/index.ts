@@ -77,15 +77,29 @@ serve(async (req) => {
     // Handle photo upload if provided
     let photoUrl = scanData.photo_url;
     if (scanData.photo_base64) {
-      const fileName = `scan-${user.id}-${Date.now()}.jpg`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('scan-photos')
-        .upload(fileName, Buffer.from(scanData.photo_base64, 'base64'), {
-          contentType: 'image/jpeg',
-        });
+      try {
+        const fileName = `scan-${user.id}-${Date.now()}.jpg`;
+        
+        // Convert base64 to Uint8Array for Deno
+        const binaryString = atob(scanData.photo_base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('scan-photos')
+          .upload(fileName, bytes, {
+            contentType: 'image/jpeg',
+          });
 
-      if (!uploadError && uploadData) {
-        photoUrl = uploadData.path;
+        if (!uploadError && uploadData) {
+          photoUrl = uploadData.path;
+        } else {
+          console.error('Photo upload error:', uploadError);
+        }
+      } catch (uploadError) {
+        console.error('Photo processing error:', uploadError);
       }
     }
 
