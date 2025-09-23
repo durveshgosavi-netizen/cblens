@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          category: string
+          created_at: string
+          criteria: Json
+          description: string
+          icon: string
+          id: string
+          is_active: boolean | null
+          name: string
+          points: number | null
+          rarity: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          criteria: Json
+          description: string
+          icon: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          points?: number | null
+          rarity?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          criteria?: Json
+          description?: string
+          icon?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          points?: number | null
+          rarity?: string | null
+        }
+        Relationships: []
+      }
       chefs_choice: {
         Row: {
           canteen_location: string
@@ -259,6 +298,78 @@ export type Database = {
           },
         ]
       }
+      nutrition_insights: {
+        Row: {
+          created_at: string
+          data: Json | null
+          description: string
+          expires_at: string | null
+          id: string
+          insight_type: string
+          is_read: boolean | null
+          severity: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          description: string
+          expires_at?: string | null
+          id?: string
+          insight_type: string
+          is_read?: boolean | null
+          severity?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          description?: string
+          expires_at?: string | null
+          id?: string
+          insight_type?: string
+          is_read?: boolean | null
+          severity?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nutrition_streaks: {
+        Row: {
+          best_count: number | null
+          current_count: number | null
+          id: string
+          last_activity_date: string | null
+          started_at: string
+          streak_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_count?: number | null
+          current_count?: number | null
+          id?: string
+          last_activity_date?: string | null
+          started_at?: string
+          streak_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_count?: number | null
+          current_count?: number | null
+          id?: string
+          last_activity_date?: string | null
+          started_at?: string
+          streak_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           canteen_location: string | null
@@ -348,6 +459,80 @@ export type Database = {
           scaled_fat?: number
           scaled_protein?: number
           scan_timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          earned_at: string
+          id: string
+          progress: Json | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          earned_at?: string
+          id?: string
+          progress?: Json | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          earned_at?: string
+          id?: string
+          progress?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_goals: {
+        Row: {
+          created_at: string
+          current_value: number | null
+          end_date: string | null
+          goal_type: string
+          id: string
+          is_active: boolean | null
+          start_date: string
+          target_value: number
+          time_period: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number | null
+          end_date?: string | null
+          goal_type: string
+          id?: string
+          is_active?: boolean | null
+          start_date?: string
+          target_value: number
+          time_period: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number | null
+          end_date?: string | null
+          goal_type?: string
+          id?: string
+          is_active?: boolean | null
+          start_date?: string
+          target_value?: number
+          time_period?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
