@@ -50,7 +50,7 @@ serve(async (req) => {
     // Get actual dish nutritional data from kanpla_items table
     const { data: dishData, error: dishError } = await supabase
       .from('kanpla_items')
-      .select('calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g')
+      .select('id, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g')
       .eq('kanpla_item_id', scanData.kanpla_item_id)
       .single();
 
@@ -89,42 +89,8 @@ serve(async (req) => {
       }
     }
 
-    // Get or create the kanpla_item UUID from the string ID
-    let kanplaItemUuid = scanData.kanpla_item_id;
-    
-    // If it's a string ID, try to find the corresponding UUID
-    if (!scanData.kanpla_item_id.includes('-')) {
-      const { data: existingItem } = await supabase
-        .from('kanpla_items')
-        .select('id')
-        .eq('kanpla_item_id', scanData.kanpla_item_id)
-        .single();
-      
-      if (existingItem) {
-        kanplaItemUuid = existingItem.id;
-      } else {
-        // Create a new kanpla_item entry if it doesn't exist
-        const { data: newItem, error: createError } = await supabase
-          .from('kanpla_items')
-          .insert({
-            kanpla_item_id: scanData.kanpla_item_id,
-            name: `Danish Dish (${scanData.kanpla_item_id})`,
-            category: 'Danish Cuisine',
-            calories_per_100g: dishNutrition.calories_per_100g,
-            protein_per_100g: dishNutrition.protein_per_100g,
-            carbs_per_100g: dishNutrition.carbs_per_100g,
-            fat_per_100g: dishNutrition.fat_per_100g
-          })
-          .select('id')
-          .single();
-        
-        if (!createError && newItem) {
-          kanplaItemUuid = newItem.id;
-        } else {
-          kanplaItemUuid = crypto.randomUUID();
-        }
-      }
-    }
+    // Use the dish UUID directly if we found the dish, otherwise use the string ID
+    let kanplaItemUuid = dishData?.id || scanData.kanpla_item_id;
 
     // Insert scan record
     const { data: scanRecord, error: insertError } = await supabase

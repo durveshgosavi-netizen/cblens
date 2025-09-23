@@ -13,53 +13,45 @@ interface ScanResultsProps {
   onRescan: () => void;
 }
 
-// Get Danish menu items from the database
-const getDanishMenuItems = async () => {
-  const { data } = await supabase
-    .from('kanpla_items')
-    .select('*')
-    .like('kanpla_item_id', 'danish-%')
-    .limit(3);
-  
-  return data || [];
+// Real dish detection using edge function
+const getDetectionResults = async (imageBase64: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('dish-detection', {
+      body: {
+        imageBase64: imageBase64,
+        canteenLocation: 'Main Campus',
+        date: new Date().toISOString().split('T')[0]
+      }
+    });
+
+    if (error) {
+      console.error('Detection error:', error);
+      return getFallbackResults();
+    }
+
+    return data?.matches || getFallbackResults();
+  } catch (error) {
+    console.error('Detection failed:', error);
+    return getFallbackResults();
+  }
 };
 
-// Mock AI detection results using real Danish dishes
-const getMockDetectionResults = async () => {
-  const danishItems = await getDanishMenuItems();
-  
-  if (danishItems.length === 0) {
-    // Fallback mock data if no Danish items found
-    return [
-      {
-        id: "danish-fransk-logsuppe",
-        name: "Fransk løgsuppe m. gratineret ostebrød",
-        category: "Main Course",
-        protein: 8,
-        carbs: 25,
-        fat: 12,
-        calories: 220,
-        allergens: ["dairy", "gluten"],
-        confidence: 0.92,
-        image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
-      }
-    ];
-  }
-  
-  return danishItems.map((item, index) => ({
-    id: item.kanpla_item_id,
-    name: item.name,
-    category: item.category,
-    protein: Number(item.protein_per_100g) || 20,
-    carbs: Number(item.carbs_per_100g) || 30,
-    fat: Number(item.fat_per_100g) || 10,
-    calories: Number(item.calories_per_100g) || 250,
-    allergens: item.allergens || [],
-    confidence: [0.92, 0.76, 0.61][index] || 0.5,
-    image: `https://images.unsplash.com/photo-${
-      ['1547592166-23ac45744acd', '1565557623262-b51c2513a641', '1567620905889-e6c0028c5bac'][index] || '1547592166-23ac45744acd'
-    }?w=400&h=300&fit=crop&crop=center&auto=format&q=80`
-  }));
+// Fallback detection results
+const getFallbackResults = () => {
+  return [
+    {
+      id: "danish-fransk-logsuppe",
+      name: "Fransk løgsuppe m. gratineret ostebrød",
+      category: "Main Course",
+      protein: 8,
+      carbs: 25,
+      fat: 12,
+      calories: 220,
+      allergens: ["dairy", "gluten"],
+      confidence: 0.75,
+      image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
+    }
+  ];
 };
 
 export default function ScanResults({ capturedImage, onBack, onSave, onRescan }: ScanResultsProps) {
@@ -76,11 +68,14 @@ export default function ScanResults({ capturedImage, onBack, onSave, onRescan }:
 
   const loadDetectionResults = async () => {
     try {
-      const results = await getMockDetectionResults();
+      const results = await getDetectionResults(capturedImage);
       setDetectionResults(results);
       setSelectedDish(results[0]);
     } catch (error) {
       console.error('Error loading detection results:', error);
+      const fallback = getFallbackResults();
+      setDetectionResults(fallback);
+      setSelectedDish(fallback[0]);
     } finally {
       setLoading(false);
     }

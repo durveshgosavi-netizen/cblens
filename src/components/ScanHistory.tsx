@@ -52,7 +52,10 @@ export default function ScanHistory() {
       
       let query = supabase
         .from('scans')
-        .select('*')
+        .select(`
+          *,
+          kanpla_items(name, category, image_url)
+        `)
         .order('scan_timestamp', { ascending: false });
 
       if (confidenceFilter !== "all") {
@@ -100,8 +103,8 @@ export default function ScanHistory() {
   const exportToCSV = () => {
     const csvData = filteredScans.map(scan => ({
       Date: format(new Date(scan.scan_timestamp), 'yyyy-MM-dd HH:mm'),
-      Dish: `Dish from Menu`,
-      Category: 'Danish Cuisine',
+      Dish: scan.kanpla_items?.name || 'Menu Item',
+      Category: scan.kanpla_items?.category || 'Main Course',
       Confidence: scan.confidence,
       Portion: getPortionLabel(scan.portion_preset),
       'Weight (g)': scan.estimated_grams,
@@ -128,6 +131,7 @@ export default function ScanHistory() {
   };
 
   const filteredScans = scans.filter(scan =>
+    (scan.kanpla_items?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     scan.canteen_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
     searchTerm === ""
   );
@@ -261,10 +265,14 @@ export default function ScanHistory() {
                   {/* Scan Details */}
                   <div className="flex-1">
                     <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h3 className="font-semibold">Danish Menu Item</h3>
-                        <p className="text-sm text-muted-foreground">Danish Cuisine</p>
-                      </div>
+                     <div>
+                       <h3 className="font-semibold">
+                         {scan.kanpla_items?.name || 'Menu Item'}
+                       </h3>
+                       <p className="text-sm text-muted-foreground">
+                         {scan.kanpla_items?.category || 'Main Course'}
+                       </p>
+                     </div>
                       <Badge variant={getConfidenceBadgeVariant(scan.confidence) as any}>
                         {scan.confidence} confidence
                       </Badge>

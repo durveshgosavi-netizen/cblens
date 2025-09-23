@@ -29,6 +29,13 @@ export default function CameraInterface({ onCapture, onCancel }: CameraInterface
 
   const initializeCamera = async () => {
     try {
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.log('Camera API not supported');
+        setShowUploadOption(true);
+        return;
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'environment', // Use back camera on mobile
@@ -36,9 +43,15 @@ export default function CameraInterface({ onCapture, onCancel }: CameraInterface
           height: { ideal: 720 }
         }
       });
+      
       setStream(mediaStream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        // Ensure video loads and plays
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(console.error);
+        };
       }
     } catch (error) {
       console.error('Camera access denied or not available:', error);
