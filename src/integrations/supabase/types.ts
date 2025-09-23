@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      chefs_choice: {
+        Row: {
+          canteen_location: string
+          chef_notes: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          featured_date: string
+          id: string
+          kanpla_item_id: string
+          updated_at: string
+        }
+        Insert: {
+          canteen_location: string
+          chef_notes?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          featured_date?: string
+          id?: string
+          kanpla_item_id: string
+          updated_at?: string
+        }
+        Update: {
+          canteen_location?: string
+          chef_notes?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          featured_date?: string
+          id?: string
+          kanpla_item_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_menus: {
         Row: {
           canteen_location: string
@@ -41,10 +77,44 @@ export type Database = {
             foreignKeyName: "daily_menus_kanpla_item_id_fkey"
             columns: ["kanpla_item_id"]
             isOneToOne: false
+            referencedRelation: "daily_recommendations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_menus_kanpla_item_id_fkey"
+            columns: ["kanpla_item_id"]
+            isOneToOne: false
             referencedRelation: "kanpla_items"
             referencedColumns: ["id"]
           },
         ]
+      }
+      dietary_preferences: {
+        Row: {
+          created_at: string
+          id: string
+          preference_type: string
+          preference_value: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          preference_type: string
+          preference_value: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          preference_type?: string
+          preference_value?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       dish_notes: {
         Row: {
@@ -72,6 +142,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "dish_notes_kanpla_item_id_fkey"
+            columns: ["kanpla_item_id"]
+            isOneToOne: false
+            referencedRelation: "daily_recommendations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dish_notes_kanpla_item_id_fkey"
             columns: ["kanpla_item_id"]
@@ -131,6 +208,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      meal_ratings: {
+        Row: {
+          created_at: string
+          feedback: string | null
+          id: string
+          kanpla_item_id: string
+          portion_rating: number | null
+          rating: number
+          scan_id: string | null
+          taste_rating: number | null
+          user_id: string
+          value_rating: number | null
+          would_recommend: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          kanpla_item_id: string
+          portion_rating?: number | null
+          rating: number
+          scan_id?: string | null
+          taste_rating?: number | null
+          user_id: string
+          value_rating?: number | null
+          would_recommend?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          feedback?: string | null
+          id?: string
+          kanpla_item_id?: string
+          portion_rating?: number | null
+          rating?: number
+          scan_id?: string | null
+          taste_rating?: number | null
+          user_id?: string
+          value_rating?: number | null
+          would_recommend?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_ratings_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -275,7 +402,22 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      daily_recommendations: {
+        Row: {
+          allergens: string[] | null
+          avg_rating: number | null
+          calories_per_100g: number | null
+          carbs_per_100g: number | null
+          category: string | null
+          fat_per_100g: number | null
+          id: string | null
+          is_chefs_choice: boolean | null
+          name: string | null
+          protein_per_100g: number | null
+          rating_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never
