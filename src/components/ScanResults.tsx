@@ -48,8 +48,7 @@ const getFallbackResults = () => {
       fat: 12,
       calories: 220,
       allergens: ["dairy", "gluten"],
-      confidence: 0.75,
-      image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
+      confidence: 0.75
     }
   ];
 };

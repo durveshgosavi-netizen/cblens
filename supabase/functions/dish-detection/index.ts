@@ -24,7 +24,6 @@ interface DetectionResponse {
     calories: number;
     allergens: string[];
     confidence: number;
-    image: string;
   }>;
   processingTime: number;
 }
@@ -148,10 +147,7 @@ serve(async (req) => {
         fat: Number(dish.fat_per_100g) || 10,
         calories: Number(dish.calories_per_100g) || 250,
         allergens: dish.allergens || [],
-        confidence: confidenceScores[index] || 0.5,
-        image: dish.image_url || `https://images.unsplash.com/photo-${
-          ['1547592166-23ac45744acd', '1565557623262-b51c2513a641', '1567620905889-e6c0028c5bac'][index] || '1547592166-23ac45744acd'
-        }?w=400&h=300&fit=crop&crop=center&auto=format&q=80`
+        confidence: confidenceScores[index] || 0.5
       };
     });
 
@@ -166,8 +162,7 @@ serve(async (req) => {
         fat: 8,
         calories: 200,
         allergens: [],
-        confidence: 0.1,
-        image: "https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&h=300&fit=crop&crop=center&auto=format&q=80"
+        confidence: 0.1
       });
     }
 

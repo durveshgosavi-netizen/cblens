@@ -53,16 +53,6 @@ export default function DishCard({ dish, isSelected, onSelect, showConfidence }:
       </CardHeader>
 
       <CardContent className="pb-3">
-        {dish.image && (
-          <div className="aspect-video bg-warm-cream rounded-lg mb-4 overflow-hidden">
-            <img 
-              src={dish.image} 
-              alt={dish.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-            />
-          </div>
-        )}
-        
         <div className="grid grid-cols-3 gap-2 mb-3">
           <div className="text-center p-2 bg-accent/20 rounded-lg">
             <Badge variant="protein" className="mb-1 text-xs">P</Badge>
