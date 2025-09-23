@@ -223,15 +223,7 @@ export type Database = {
           scan_timestamp?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "scans_kanpla_item_id_fkey"
-            columns: ["kanpla_item_id"]
-            isOneToOne: false
-            referencedRelation: "kanpla_items"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       weekly_menus: {
         Row: {

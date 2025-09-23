@@ -46,6 +46,11 @@ serve(async (req) => {
 
     // Parse request body
     const scanData: SaveScanRequest = await req.json();
+    console.log('Received scan data:', {
+      kanpla_item_id: scanData.kanpla_item_id,
+      confidence: scanData.confidence,
+      portion_preset: scanData.portion_preset
+    });
 
     // Handle menu items vs kanpla items
     let dishNutrition;
@@ -162,6 +167,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Save scan error:', error);
+    
     return new Response(
       JSON.stringify({ 
         error: error.message || 'Failed to save scan' 

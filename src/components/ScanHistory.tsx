@@ -24,6 +24,7 @@ interface Scan {
   photo_url?: string;
   canteen_location: string;
   kanpla_item_id: string;
+  alternatives?: any[];
   kanpla_items?: {
     name: string;
     category: string;
@@ -52,10 +53,7 @@ export default function ScanHistory() {
       
       let query = supabase
         .from('scans')
-        .select(`
-          *,
-          kanpla_items(name, category, image_url)
-        `)
+        .select('*')
         .order('scan_timestamp', { ascending: false });
 
       if (confidenceFilter !== "all") {
@@ -101,10 +99,27 @@ export default function ScanHistory() {
   };
 
   const exportToCSV = () => {
-    const csvData = filteredScans.map(scan => ({
-      Date: format(new Date(scan.scan_timestamp), 'yyyy-MM-dd HH:mm'),
-      Dish: scan.kanpla_items?.name || 'Menu Item',
-      Category: scan.kanpla_items?.category || 'Main Course',
+    const csvData = filteredScans.map(scan => {
+      const dishName = (() => {
+        if (scan.alternatives && Array.isArray(scan.alternatives) && scan.alternatives.length > 0) {
+          const selectedDish = scan.alternatives.find((alt: any) => alt.id === scan.kanpla_item_id) || scan.alternatives[0];
+          return (selectedDish as any)?.name || 'Unknown Dish';
+        }
+        return scan.kanpla_items?.name || 'Menu Item';
+      })();
+      
+      const category = (() => {
+        if (scan.alternatives && Array.isArray(scan.alternatives) && scan.alternatives.length > 0) {
+          const selectedDish = scan.alternatives.find((alt: any) => alt.id === scan.kanpla_item_id) || scan.alternatives[0];
+          return (selectedDish as any)?.category || 'Unknown Category';
+        }
+        return scan.kanpla_items?.category || 'Main Course';
+      })();
+      
+      return {
+        Date: format(new Date(scan.scan_timestamp), 'yyyy-MM-dd HH:mm'),
+        Dish: dishName,
+        Category: category,
       Confidence: scan.confidence,
       Portion: getPortionLabel(scan.portion_preset),
       'Weight (g)': scan.estimated_grams,
@@ -112,9 +127,10 @@ export default function ScanHistory() {
       'Protein (g)': scan.scaled_protein,
       'Carbs (g)': scan.scaled_carbs,
       'Fat (g)': scan.scaled_fat,
-      Location: scan.canteen_location,
-      Notes: scan.notes || ''
-    }));
+        Location: scan.canteen_location,
+        Notes: scan.notes || ''
+      };
+    });
 
     const csvContent = [
       Object.keys(csvData[0]).join(','),
@@ -130,11 +146,19 @@ export default function ScanHistory() {
     URL.revokeObjectURL(url);
   };
 
-  const filteredScans = scans.filter(scan =>
-    (scan.kanpla_items?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    scan.canteen_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    searchTerm === ""
-  );
+  const filteredScans = scans.filter(scan => {
+    const dishName = (() => {
+      if (scan.alternatives && Array.isArray(scan.alternatives) && scan.alternatives.length > 0) {
+        const selectedDish = scan.alternatives.find((alt: any) => alt.id === scan.kanpla_item_id) || scan.alternatives[0];
+        return (selectedDish as any)?.name || '';
+      }
+      return scan.kanpla_items?.name || '';
+    })();
+    
+    return dishName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           scan.canteen_location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           searchTerm === "";
+  });
 
   const getConfidenceBadgeVariant = (confidence: string) => {
     switch (confidence) {
@@ -267,10 +291,28 @@ export default function ScanHistory() {
                     <div className="flex items-start justify-between mb-2">
                      <div>
                        <h3 className="font-semibold">
-                         {scan.kanpla_items?.name || 'Menu Item'}
+                         {(() => {
+                           // Get dish name from alternatives or fallback
+                           if (scan.alternatives && Array.isArray(scan.alternatives) && scan.alternatives.length > 0) {
+                             const selectedDish = scan.alternatives.find((alt: any) => alt.id === scan.kanpla_item_id) || scan.alternatives[0];
+                             return (selectedDish as any)?.name || 'Unknown Dish';
+                           } else if (typeof scan.kanpla_item_id === 'string' && scan.kanpla_item_id.startsWith('menu-')) {
+                             return 'Menu Item';
+                           }
+                           return scan.kanpla_items?.name || 'Unknown Dish';
+                         })()}
                        </h3>
                        <p className="text-sm text-muted-foreground">
-                         {scan.kanpla_items?.category || 'Main Course'}
+                         {(() => {
+                           // Get category from alternatives or fallback
+                           if (scan.alternatives && Array.isArray(scan.alternatives) && scan.alternatives.length > 0) {
+                             const selectedDish = scan.alternatives.find((alt: any) => alt.id === scan.kanpla_item_id) || scan.alternatives[0];
+                             return (selectedDish as any)?.category || 'Unknown Category';
+                           } else if (typeof scan.kanpla_item_id === 'string' && scan.kanpla_item_id.startsWith('menu-')) {
+                             return 'Daily Menu';
+                           }
+                           return scan.kanpla_items?.category || 'Unknown Category';
+                         })()}
                        </p>
                      </div>
                       <Badge variant={getConfidenceBadgeVariant(scan.confidence) as any}>

@@ -37,13 +37,10 @@ export default function Analytics() {
       const startDate = startOfDay(subDays(new Date(), days));
       const endDate = endOfDay(new Date());
 
-      // Fetch scans with related data
+      // Fetch scans data
       const { data: scans, error } = await supabase
         .from('scans')
-        .select(`
-          *,
-          kanpla_items (name, category)
-        `)
+        .select('*')
         .gte('scan_timestamp', startDate.toISOString())
         .lte('scan_timestamp', endDate.toISOString())
         .order('scan_timestamp', { ascending: false });
@@ -81,11 +78,23 @@ export default function Analytics() {
       }, 0);
       const avgConfidence = totalScans > 0 ? (confidenceScore / totalScans) * 33.33 : 0; // Convert to percentage
 
-      // Top dishes
+      // Top dishes - get dish names from alternatives or try to fetch from kanpla_items
       const dishCounts: Record<string, { count: number; category: string }> = {};
       scans.forEach(scan => {
-        const dishName = scan.kanpla_items?.name || 'Unknown Dish';
-        const category = scan.kanpla_items?.category || 'Unknown Category';
+        let dishName = 'Unknown Dish';
+        let category = 'Unknown Category';
+        
+        // Check if we have alternatives data
+        if (scan.alternatives && Array.isArray(scan.alternatives) && scan.alternatives.length > 0) {
+          const selectedDish = scan.alternatives.find((alt: any) => alt.id === scan.kanpla_item_id) || scan.alternatives[0];
+          dishName = (selectedDish as any)?.name || 'Unknown Dish';
+          category = (selectedDish as any)?.category || 'Unknown Category';
+        } else if (typeof scan.kanpla_item_id === 'string' && scan.kanpla_item_id.startsWith('menu-')) {
+          // Extract dish name from menu item ID
+          dishName = scan.kanpla_item_id.replace(/^menu-\w+-\d{4}-\d{2}-\d{2}$/, 'Menu Item');
+          category = 'Daily Menu';
+        }
+        
         if (!dishCounts[dishName]) {
           dishCounts[dishName] = { count: 0, category };
         }
