@@ -8,36 +8,49 @@ import { TrendingUp, Target, Users, Clock, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 
-interface AnalyticsData {
-  totalScans: number;
-  avgConfidence: number;
-  topDishes: Array<{ name: string; count: number; category: string }>;
-  scansPerDay: Array<{ date: string; count: number }>;
-  confidenceDistribution: Array<{ confidence: string; count: number; percentage: number }>;
-  avgPortionSize: number;
-  locationBreakdown: Array<{ location: string; count: number }>;
+interface NutritionData {
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  avgDailyCalories: number;
+  dailyNutrition: Array<{ date: string; calories: number; protein: number; carbs: number; fat: number; meals: number }>;
+  weeklyNutrition: Array<{ week: string; calories: number; protein: number; carbs: number; fat: number; meals: number }>;
+  monthlyNutrition: Array<{ month: string; calories: number; protein: number; carbs: number; fat: number; meals: number }>;
+  macroDistribution: Array<{ name: string; value: number; percentage: number }>;
+  calorieGoalProgress: number;
+  proteinGoalProgress: number;
 }
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))'];
+const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--secondary))', 'hsl(var(--muted))'];
+
+// Daily nutrition goals (these could be user-configurable in the future)
+const DAILY_GOALS = {
+  calories: 2000,
+  protein: 150, // grams
+  carbs: 250,   // grams  
+  fat: 65       // grams
+};
 
 export default function Analytics() {
-  const [data, setData] = useState<AnalyticsData | null>(null);
+  const [data, setData] = useState<NutritionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState("7");
+  const [viewMode, setViewMode] = useState<"daily" | "weekly" | "monthly">("daily");
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [dateRange]);
+    fetchNutritionData();
+  }, [dateRange, viewMode]);
 
-  const fetchAnalytics = async () => {
+  const fetchNutritionData = async () => {
     setLoading(true);
     try {
       const days = parseInt(dateRange);
       const startDate = startOfDay(subDays(new Date(), days));
       const endDate = endOfDay(new Date());
 
-      // Fetch scans data
+      // Fetch nutrition scans data
       const { data: scans, error } = await supabase
         .from('scans')
         .select('*')
@@ -46,124 +59,170 @@ export default function Analytics() {
         .order('scan_timestamp', { ascending: false });
 
       if (error) {
-        console.error('Analytics fetch error:', error);
+        console.error('Nutrition fetch error:', error);
         toast({
           title: "Error",
-          description: "Failed to fetch analytics data",
+          description: "Failed to fetch nutrition data",
           variant: "destructive",
         });
         return;
       }
 
-      if (!scans) {
+      if (!scans || scans.length === 0) {
         setData({
-          totalScans: 0,
-          avgConfidence: 0,
-          topDishes: [],
-          scansPerDay: [],
-          confidenceDistribution: [],
-          avgPortionSize: 0,
-          locationBreakdown: [],
+          totalCalories: 0,
+          totalProtein: 0,
+          totalCarbs: 0,
+          totalFat: 0,
+          avgDailyCalories: 0,
+          dailyNutrition: [],
+          weeklyNutrition: [],
+          monthlyNutrition: [],
+          macroDistribution: [
+            { name: 'Protein', value: 0, percentage: 0 },
+            { name: 'Carbs', value: 0, percentage: 0 },
+            { name: 'Fat', value: 0, percentage: 0 }
+          ],
+          calorieGoalProgress: 0,
+          proteinGoalProgress: 0,
         });
         return;
       }
 
-      // Calculate analytics
-      const totalScans = scans.length;
-      
-      // Average confidence (high=3, medium=2, low=1)
-      const confidenceScore = scans.reduce((sum, scan) => {
-        const score = scan.confidence === 'high' ? 3 : scan.confidence === 'medium' ? 2 : 1;
-        return sum + score;
-      }, 0);
-      const avgConfidence = totalScans > 0 ? (confidenceScore / totalScans) * 33.33 : 0; // Convert to percentage
+      // Calculate total nutrition
+      const totalCalories = scans.reduce((sum, scan) => sum + (scan.scaled_calories || 0), 0);
+      const totalProtein = scans.reduce((sum, scan) => sum + (scan.scaled_protein || 0), 0);
+      const totalCarbs = scans.reduce((sum, scan) => sum + (scan.scaled_carbs || 0), 0);
+      const totalFat = scans.reduce((sum, scan) => sum + (scan.scaled_fat || 0), 0);
 
-      // Top dishes - get dish names from alternatives or try to fetch from kanpla_items
-      const dishCounts: Record<string, { count: number; category: string }> = {};
-      scans.forEach(scan => {
-        let dishName = 'Unknown Dish';
-        let category = 'Unknown Category';
-        
-        // Check if we have alternatives data
-        if (scan.alternatives && Array.isArray(scan.alternatives) && scan.alternatives.length > 0) {
-          const selectedDish = scan.alternatives.find((alt: any) => alt.id === scan.kanpla_item_id) || scan.alternatives[0];
-          dishName = (selectedDish as any)?.name || 'Unknown Dish';
-          category = (selectedDish as any)?.category || 'Unknown Category';
-        } else if (typeof scan.kanpla_item_id === 'string' && scan.kanpla_item_id.startsWith('menu-')) {
-          // Extract dish name from menu item ID
-          dishName = scan.kanpla_item_id.replace(/^menu-\w+-\d{4}-\d{2}-\d{2}$/, 'Menu Item');
-          category = 'Daily Menu';
-        }
-        
-        if (!dishCounts[dishName]) {
-          dishCounts[dishName] = { count: 0, category };
-        }
-        dishCounts[dishName].count++;
-      });
-      
-      const topDishes = Object.entries(dishCounts)
-        .map(([name, data]) => ({ name, count: data.count, category: data.category }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-
-      // Scans per day
-      const dailyCounts: Record<string, number> = {};
+      // Calculate daily nutrition
+      const dailyGroups: Record<string, { calories: number; protein: number; carbs: number; fat: number; meals: number }> = {};
       for (let i = 0; i < days; i++) {
         const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
-        dailyCounts[date] = 0;
+        dailyGroups[date] = { calories: 0, protein: 0, carbs: 0, fat: 0, meals: 0 };
       }
-      
+
       scans.forEach(scan => {
         const date = format(new Date(scan.scan_timestamp), 'yyyy-MM-dd');
-        if (dailyCounts.hasOwnProperty(date)) {
-          dailyCounts[date]++;
+        if (dailyGroups[date]) {
+          dailyGroups[date].calories += scan.scaled_calories || 0;
+          dailyGroups[date].protein += scan.scaled_protein || 0;
+          dailyGroups[date].carbs += scan.scaled_carbs || 0;
+          dailyGroups[date].fat += scan.scaled_fat || 0;
+          dailyGroups[date].meals += 1;
         }
       });
 
-      const scansPerDay = Object.entries(dailyCounts)
-        .map(([date, count]) => ({ date: format(new Date(date), 'MMM d'), count }))
+      const dailyNutrition = Object.entries(dailyGroups)
+        .map(([date, nutrition]) => ({
+          date: format(new Date(date), 'MMM d'),
+          calories: Math.round(nutrition.calories),
+          protein: Math.round(nutrition.protein),
+          carbs: Math.round(nutrition.carbs),
+          fat: Math.round(nutrition.fat),
+          meals: nutrition.meals
+        }))
         .reverse();
 
-      // Confidence distribution
-      const confidenceMap: Record<string, number> = { high: 0, medium: 0, low: 0 };
+      // Calculate weekly nutrition (group by weeks)
+      const weeklyGroups: Record<string, { calories: number; protein: number; carbs: number; fat: number; meals: number }> = {};
       scans.forEach(scan => {
-        confidenceMap[scan.confidence]++;
+        const scanDate = new Date(scan.scan_timestamp);
+        const weekStart = format(subDays(scanDate, scanDate.getDay()), 'yyyy-MM-dd');
+        if (!weeklyGroups[weekStart]) {
+          weeklyGroups[weekStart] = { calories: 0, protein: 0, carbs: 0, fat: 0, meals: 0 };
+        }
+        weeklyGroups[weekStart].calories += scan.scaled_calories || 0;
+        weeklyGroups[weekStart].protein += scan.scaled_protein || 0;
+        weeklyGroups[weekStart].carbs += scan.scaled_carbs || 0;
+        weeklyGroups[weekStart].fat += scan.scaled_fat || 0;
+        weeklyGroups[weekStart].meals += 1;
       });
 
-      const confidenceDistribution = Object.entries(confidenceMap).map(([confidence, count]) => ({
-        confidence: confidence.charAt(0).toUpperCase() + confidence.slice(1),
-        count,
-        percentage: totalScans > 0 ? Math.round((count / totalScans) * 100) : 0,
-      }));
+      const weeklyNutrition = Object.entries(weeklyGroups)
+        .map(([week, nutrition]) => ({
+          week: `Week of ${format(new Date(week), 'MMM d')}`,
+          calories: Math.round(nutrition.calories),
+          protein: Math.round(nutrition.protein),
+          carbs: Math.round(nutrition.carbs),
+          fat: Math.round(nutrition.fat),
+          meals: nutrition.meals
+        }))
+        .sort((a, b) => new Date(a.week.replace('Week of ', '')).getTime() - new Date(b.week.replace('Week of ', '')).getTime());
 
-      // Average portion size (convert to grams)
-      const totalGrams = scans.reduce((sum, scan) => sum + scan.estimated_grams, 0);
-      const avgPortionSize = totalScans > 0 ? Math.round(totalGrams / totalScans) : 0;
-
-      // Location breakdown
-      const locationCounts: Record<string, number> = {};
+      // Calculate monthly nutrition
+      const monthlyGroups: Record<string, { calories: number; protein: number; carbs: number; fat: number; meals: number }> = {};
       scans.forEach(scan => {
-        locationCounts[scan.canteen_location] = (locationCounts[scan.canteen_location] || 0) + 1;
+        const month = format(new Date(scan.scan_timestamp), 'yyyy-MM');
+        if (!monthlyGroups[month]) {
+          monthlyGroups[month] = { calories: 0, protein: 0, carbs: 0, fat: 0, meals: 0 };
+        }
+        monthlyGroups[month].calories += scan.scaled_calories || 0;
+        monthlyGroups[month].protein += scan.scaled_protein || 0;
+        monthlyGroups[month].carbs += scan.scaled_carbs || 0;
+        monthlyGroups[month].fat += scan.scaled_fat || 0;
+        monthlyGroups[month].meals += 1;
       });
 
-      const locationBreakdown = Object.entries(locationCounts)
-        .map(([location, count]) => ({ location, count }))
-        .sort((a, b) => b.count - a.count);
+      const monthlyNutrition = Object.entries(monthlyGroups)
+        .map(([month, nutrition]) => ({
+          month: format(new Date(month + '-01'), 'MMM yyyy'),
+          calories: Math.round(nutrition.calories),
+          protein: Math.round(nutrition.protein),
+          carbs: Math.round(nutrition.carbs),
+          fat: Math.round(nutrition.fat),
+          meals: nutrition.meals
+        }))
+        .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
+
+      // Calculate macro distribution (calories from each macro)
+      const proteinCalories = totalProtein * 4; // 4 calories per gram
+      const carbCalories = totalCarbs * 4;     // 4 calories per gram  
+      const fatCalories = totalFat * 9;        // 9 calories per gram
+      const totalMacroCalories = proteinCalories + carbCalories + fatCalories;
+
+      const macroDistribution = [
+        { 
+          name: 'Protein', 
+          value: Math.round(proteinCalories),
+          percentage: totalMacroCalories > 0 ? Math.round((proteinCalories / totalMacroCalories) * 100) : 0
+        },
+        { 
+          name: 'Carbs', 
+          value: Math.round(carbCalories),
+          percentage: totalMacroCalories > 0 ? Math.round((carbCalories / totalMacroCalories) * 100) : 0
+        },
+        { 
+          name: 'Fat', 
+          value: Math.round(fatCalories),
+          percentage: totalMacroCalories > 0 ? Math.round((fatCalories / totalMacroCalories) * 100) : 0
+        }
+      ];
+
+      // Calculate goal progress
+      const avgDailyCalories = Math.round(totalCalories / days);
+      const avgDailyProtein = Math.round(totalProtein / days);
+      const calorieGoalProgress = Math.round((avgDailyCalories / DAILY_GOALS.calories) * 100);
+      const proteinGoalProgress = Math.round((avgDailyProtein / DAILY_GOALS.protein) * 100);
 
       setData({
-        totalScans,
-        avgConfidence,
-        topDishes,
-        scansPerDay,
-        confidenceDistribution,
-        avgPortionSize,
-        locationBreakdown,
+        totalCalories: Math.round(totalCalories),
+        totalProtein: Math.round(totalProtein),
+        totalCarbs: Math.round(totalCarbs),
+        totalFat: Math.round(totalFat),
+        avgDailyCalories,
+        dailyNutrition,
+        weeklyNutrition,
+        monthlyNutrition,
+        macroDistribution,
+        calorieGoalProgress,
+        proteinGoalProgress,
       });
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      console.error('Error fetching nutrition data:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch analytics data",
+        description: "Failed to fetch nutrition data",
         variant: "destructive",
       });
     } finally {
@@ -171,34 +230,39 @@ export default function Analytics() {
     }
   };
 
-  const exportAnalytics = () => {
+  const exportNutritionReport = () => {
     if (!data) return;
 
     const report = {
       reportDate: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
       dateRange: `Last ${dateRange} days`,
-      summary: {
-        totalScans: data.totalScans,
-        averageConfidence: `${data.avgConfidence.toFixed(1)}%`,
-        averagePortionSize: `${data.avgPortionSize}g`,
+      nutritionSummary: {
+        totalCalories: data.totalCalories,
+        totalProtein: `${data.totalProtein}g`,
+        totalCarbs: `${data.totalCarbs}g`, 
+        totalFat: `${data.totalFat}g`,
+        avgDailyCalories: data.avgDailyCalories,
+        calorieGoalProgress: `${data.calorieGoalProgress}%`,
+        proteinGoalProgress: `${data.proteinGoalProgress}%`,
       },
-      topDishes: data.topDishes,
-      confidenceDistribution: data.confidenceDistribution,
-      locationBreakdown: data.locationBreakdown,
-      dailyScans: data.scansPerDay,
+      dailyGoals: DAILY_GOALS,
+      macroDistribution: data.macroDistribution,
+      dailyNutrition: data.dailyNutrition,
+      weeklyNutrition: data.weeklyNutrition,
+      monthlyNutrition: data.monthlyNutrition,
     };
 
     const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `cb-lens-analytics-${format(new Date(), 'yyyy-MM-dd')}.json`;
+    link.download = `nutrition-report-${format(new Date(), 'yyyy-MM-dd')}.json`;
     link.click();
     window.URL.revokeObjectURL(url);
 
     toast({
       title: "Export Complete",
-      description: "Analytics report exported successfully",
+      description: "Nutrition report exported successfully",
     });
   };
 
@@ -226,9 +290,19 @@ export default function Analytics() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            Analytics Dashboard
+            Nutrition Tracker
           </CardTitle>
           <div className="flex items-center gap-2">
+            <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={dateRange} onValueChange={setDateRange}>
               <SelectTrigger className="w-32">
                 <SelectValue />
@@ -239,7 +313,7 @@ export default function Analytics() {
                 <SelectItem value="30">Last 30 days</SelectItem>
               </SelectContent>
             </Select>
-            <Button onClick={exportAnalytics} variant="outline">
+            <Button onClick={exportNutritionReport} variant="outline">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
@@ -247,16 +321,21 @@ export default function Analytics() {
         </CardHeader>
       </Card>
 
-      {/* Key Metrics */}
+      {/* Key Nutrition Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Scans</p>
-                <p className="text-3xl font-bold">{data.totalScans}</p>
+                <p className="text-sm text-muted-foreground">Avg Daily Calories</p>
+                <p className="text-3xl font-bold">{data.avgDailyCalories}</p>
+                <p className="text-xs text-muted-foreground">Goal: {DAILY_GOALS.calories} kcal</p>
               </div>
-              <Users className="h-8 w-8 text-primary" />
+              <div className="text-right">
+                <div className={`text-sm font-medium ${data.calorieGoalProgress >= 100 ? 'text-green-600' : 'text-orange-600'}`}>
+                  {data.calorieGoalProgress}%
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -265,8 +344,9 @@ export default function Analytics() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Avg Confidence</p>
-                <p className="text-3xl font-bold">{data.avgConfidence.toFixed(1)}%</p>
+                <p className="text-sm text-muted-foreground">Total Protein</p>
+                <p className="text-3xl font-bold">{data.totalProtein}g</p>
+                <p className="text-xs text-muted-foreground">Goal: {DAILY_GOALS.protein}g/{dateRange}d</p>
               </div>
               <Target className="h-8 w-8 text-primary" />
             </div>
@@ -277,8 +357,9 @@ export default function Analytics() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Avg Portion</p>
-                <p className="text-3xl font-bold">{data.avgPortionSize}g</p>
+                <p className="text-sm text-muted-foreground">Total Carbs</p>
+                <p className="text-3xl font-bold">{data.totalCarbs}g</p>
+                <p className="text-xs text-muted-foreground">Goal: {DAILY_GOALS.carbs}g/{dateRange}d</p>
               </div>
               <Clock className="h-8 w-8 text-primary" />
             </div>
@@ -289,12 +370,11 @@ export default function Analytics() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Daily Avg</p>
-                <p className="text-3xl font-bold">
-                  {Math.round(data.totalScans / parseInt(dateRange))}
-                </p>
+                <p className="text-sm text-muted-foreground">Total Fat</p>
+                <p className="text-3xl font-bold">{data.totalFat}g</p>
+                <p className="text-xs text-muted-foreground">Goal: {DAILY_GOALS.fat}g/{dateRange}d</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-primary" />
+              <Users className="h-8 w-8 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -302,101 +382,161 @@ export default function Analytics() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Scans */}
+        {/* Nutrition Trend Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Daily Scan Volume</CardTitle>
+            <CardTitle>
+              {viewMode === 'daily' ? 'Daily' : viewMode === 'weekly' ? 'Weekly' : 'Monthly'} Nutrition Intake
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={data.scansPerDay}>
+              <LineChart data={
+                viewMode === 'daily' ? data.dailyNutrition :
+                viewMode === 'weekly' ? data.weeklyNutrition : 
+                data.monthlyNutrition
+              }>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
+                <XAxis dataKey={viewMode === 'daily' ? 'date' : viewMode === 'weekly' ? 'week' : 'month'} />
                 <YAxis />
                 <Tooltip />
                 <Line
                   type="monotone"
-                  dataKey="count"
+                  dataKey="calories"
                   stroke="hsl(var(--primary))"
                   strokeWidth={2}
-                  dot={{ fill: "hsl(var(--primary))", strokeWidth: 2 }}
+                  name="Calories"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="protein"
+                  stroke="hsl(var(--accent))"
+                  strokeWidth={2}
+                  name="Protein (g)"
                 />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Confidence Distribution */}
+        {/* Macro Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle>Detection Confidence</CardTitle>
+            <CardTitle>Macro Distribution</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={data.confidenceDistribution}
+                  data={data.macroDistribution}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ confidence, percentage }) => `${confidence} (${percentage}%)`}
+                  label={({ name, percentage }) => `${name}: ${percentage}%`}
                   outerRadius={80}
                   fill="#8884d8"
-                  dataKey="count"
+                  dataKey="value"
                 >
-                  {data.confidenceDistribution.map((entry, index) => (
+                  {data.macroDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip formatter={(value: any, name) => [`${value} kcal`, name]} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Top Dishes */}
+        {/* Detailed Nutrition Bar Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Most Scanned Dishes</CardTitle>
+            <CardTitle>Macro Breakdown ({viewMode})</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.topDishes} layout="horizontal">
+              <BarChart data={
+                viewMode === 'daily' ? data.dailyNutrition :
+                viewMode === 'weekly' ? data.weeklyNutrition : 
+                data.monthlyNutrition
+              }>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="name" type="category" width={120} />
+                <XAxis dataKey={viewMode === 'daily' ? 'date' : viewMode === 'weekly' ? 'week' : 'month'} />
+                <YAxis />
                 <Tooltip />
-                <Bar dataKey="count" fill="hsl(var(--primary))" />
+                <Bar dataKey="protein" fill="hsl(var(--primary))" name="Protein (g)" />
+                <Bar dataKey="carbs" fill="hsl(var(--accent))" name="Carbs (g)" />
+                <Bar dataKey="fat" fill="hsl(var(--secondary))" name="Fat (g)" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        {/* Location Breakdown */}
+        {/* Goal Progress */}
         <Card>
           <CardHeader>
-            <CardTitle>Scans by Location</CardTitle>
+            <CardTitle>Daily Goal Progress</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {data.locationBreakdown.map((location, index) => (
-                <div key={location.location} className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{location.location}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 bg-muted rounded-full h-2">
-                      <div
-                        className="bg-primary h-2 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${(location.count / data.totalScans) * 100}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-sm text-muted-foreground w-8 text-right">
-                      {location.count}
-                    </span>
-                  </div>
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium">Calories</span>
+                  <span className="text-sm text-muted-foreground">
+                    {data.avgDailyCalories} / {DAILY_GOALS.calories} kcal
+                  </span>
                 </div>
-              ))}
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(data.calorieGoalProgress, 100)}%` }}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium">Protein</span>
+                  <span className="text-sm text-muted-foreground">
+                    {Math.round(data.totalProtein / parseInt(dateRange))} / {DAILY_GOALS.protein}g
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div
+                    className="bg-accent h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(data.proteinGoalProgress, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium">Carbs</span>
+                  <span className="text-sm text-muted-foreground">
+                    {Math.round(data.totalCarbs / parseInt(dateRange))} / {DAILY_GOALS.carbs}g
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div
+                    className="bg-secondary h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min((Math.round(data.totalCarbs / parseInt(dateRange)) / DAILY_GOALS.carbs) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm font-medium">Fat</span>
+                  <span className="text-sm text-muted-foreground">
+                    {Math.round(data.totalFat / parseInt(dateRange))} / {DAILY_GOALS.fat}g
+                  </span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div
+                    className="bg-muted-foreground h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min((Math.round(data.totalFat / parseInt(dateRange)) / DAILY_GOALS.fat) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
