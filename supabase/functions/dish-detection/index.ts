@@ -61,11 +61,11 @@ serve(async (req) => {
 
     console.log(`Found weekly menu:`, weeklyMenu);
 
-    // Convert weekly menu dishes to detection format
-    let availableDishes = [];
+  // Convert weekly menu dishes to detection format
+  let availableDishes: any[] = [];
 
-    if (weeklyMenu?.length > 0) {
-      const menu = weeklyMenu[0];
+  if (weeklyMenu && weeklyMenu.length > 0) {
+    const menu = weeklyMenu[0];
       const dishes = [];
       
       // Add hot dish
@@ -186,7 +186,7 @@ serve(async (req) => {
     console.error('Detection error:', error);
     
     return new Response(JSON.stringify({ 
-      error: error.message || 'Failed to process image',
+      error: (error as Error).message || 'Failed to process image',
       matches: [],
       processingTime: Date.now() - startTime
     }), {

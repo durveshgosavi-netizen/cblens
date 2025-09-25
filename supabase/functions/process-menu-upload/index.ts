@@ -146,7 +146,7 @@ serve(async (req) => {
     console.error('Menu upload error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to process menu upload' 
+        error: (error as Error).message || 'Failed to process menu upload' 
       }),
       { 
         status: 400,

@@ -180,7 +180,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to save scan' 
+        error: (error as Error).message || 'Failed to save scan' 
       }),
       { 
         status: 400,

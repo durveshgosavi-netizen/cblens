@@ -45,7 +45,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing achievements:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: (error as Error).message }),
       { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -129,7 +129,7 @@ async function checkAchievements(supabaseClient: any, userId: string) {
       .select('achievement_id')
       .eq('user_id', userId);
 
-    const earnedIds = userAchievements?.map(ua => ua.achievement_id) || [];
+    const earnedIds = userAchievements?.map((ua: any) => ua.achievement_id) || [];
 
     // Get all achievements
     const { data: allAchievements } = await supabaseClient
@@ -167,7 +167,7 @@ async function checkAchievements(supabaseClient: any, userId: string) {
       }
       
       if (criteria.consecutive_days) {
-        const dailyStreak = streaks?.find(s => s.streak_type === 'daily_tracking');
+        const dailyStreak = streaks?.find((s: any) => s.streak_type === 'daily_tracking');
         if (dailyStreak && dailyStreak.current_count >= criteria.consecutive_days) {
           shouldAward = true;
         }
@@ -178,7 +178,7 @@ async function checkAchievements(supabaseClient: any, userId: string) {
       }
 
       if (criteria.unique_dishes && scans) {
-        const uniqueDishes = new Set(scans.map(s => s.kanpla_item_id));
+        const uniqueDishes = new Set(scans.map((s: any) => s.kanpla_item_id));
         if (uniqueDishes.size >= criteria.unique_dishes) {
           shouldAward = true;
         }
@@ -214,8 +214,8 @@ async function generateInsights(supabaseClient: any, userId: string) {
     if (!recentScans || recentScans.length === 0) return;
 
     // Calculate averages
-    const avgCalories = recentScans.reduce((sum, scan) => sum + (scan.scaled_calories || 0), 0) / recentScans.length;
-    const avgProtein = recentScans.reduce((sum, scan) => sum + (scan.scaled_protein || 0), 0) / recentScans.length;
+    const avgCalories = recentScans.reduce((sum: number, scan: any) => sum + (scan.scaled_calories || 0), 0) / recentScans.length;
+    const avgProtein = recentScans.reduce((sum: number, scan: any) => sum + (scan.scaled_protein || 0), 0) / recentScans.length;
 
     // Generate insights based on patterns
     const insights = [];
