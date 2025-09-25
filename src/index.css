@@ -8,62 +8,57 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Warm hospitality palette */
-    --background: 45 15% 97%;
-    --foreground: 25 25% 15%;
-
+    /* CB Lens Design System - Cheval Blanc Branding */
+    --background: 0 0% 100%;
+    --foreground: 218 27% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 25 25% 15%;
-
+    --card-foreground: 218 27% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 25 25% 15%;
-
-    /* Warm coral primary */
-    --primary: 15 85% 60%;
+    --popover-foreground: 218 27% 15%;
+    
+    /* CB Green Theme - Primary palette */
+    --cb-green-100: 142 62% 94%;
+    --cb-green-200: 142 62% 85%;
+    --cb-green-300: 142 45% 65%;
+    --cb-green-400: 142 45% 45%;
+    --cb-green-500: 142 45% 35%;
+    --cb-green-600: 142 55% 25%;
+    
+    /* CB Supporting colors */
+    --cb-blue-100: 212 75% 92%;
+    --cb-blue-200: 212 65% 82%;
+    --cb-blue-300: 212 55% 65%;
+    
+    --cb-orange-accent: 28 85% 65%;
+    --cb-taupe-bg: 30 8% 96%;
+    --cb-ink: 218 27% 15%;
+    
+    /* Semantic tokens */
+    --primary: var(--cb-green-500);
     --primary-foreground: 0 0% 100%;
-    --primary-light: 15 75% 75%;
-    --primary-glow: 15 95% 85%;
-
-    /* Soft sage secondary */
-    --secondary: 120 20% 92%;
-    --secondary-foreground: 25 25% 15%;
-    --secondary-dark: 120 15% 40%;
-
-    /* Warm neutral muted */
-    --muted: 35 15% 95%;
-    --muted-foreground: 25 15% 45%;
-
-    /* Fresh accent green */
-    --accent: 125 35% 85%;
-    --accent-foreground: 125 40% 25%;
-    --accent-vibrant: 125 50% 55%;
-
+    --secondary: var(--cb-taupe-bg);
+    --secondary-foreground: var(--cb-ink);
+    --muted: var(--cb-green-100);
+    --muted-foreground: var(--cb-green-600);
+    --accent: var(--cb-blue-200);
+    --accent-foreground: var(--cb-ink);
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
+    --border: var(--cb-green-200);
+    --input: var(--cb-green-100);
+    --ring: var(--cb-green-400);
+    
+    /* CB Brand gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--cb-green-400)), hsl(var(--cb-green-500)));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--cb-green-400) / 0.9), hsl(var(--cb-green-500) / 0.9));
+    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(var(--cb-green-100) / 0.3));
+    
+    /* CB Shadows - documentary style */
+    --shadow-soft: 0 4px 20px -4px hsl(var(--cb-ink) / 0.08);
+    --shadow-elevated: 0 10px 40px -8px hsl(var(--cb-ink) / 0.12);
+    --shadow-card: 0 2px 16px -2px hsl(var(--cb-ink) / 0.06);
 
-    --border: 35 20% 90%;
-    --input: 35 20% 94%;
-    --ring: 15 85% 60%;
-
-    /* Custom hospitality tokens */
-    --warm-cream: 42 25% 96%;
-    --warm-sand: 35 20% 85%;
-    --fresh-mint: 155 30% 90%;
-    --confidence-high: 125 50% 55%;
-    --confidence-medium: 45 85% 65%;
-    --confidence-low: 0 75% 65%;
-
-    /* Gradients */
-    --gradient-warm: linear-gradient(135deg, hsl(var(--primary-glow)), hsl(var(--warm-cream)));
-    --gradient-fresh: linear-gradient(180deg, hsl(var(--fresh-mint)), hsl(var(--accent)));
-    --gradient-confidence: linear-gradient(90deg, hsl(var(--confidence-high)), hsl(var(--confidence-medium)));
-
-    /* Shadows */
-    --shadow-warm: 0 4px 20px -4px hsl(var(--primary) / 0.15);
-    --shadow-card: 0 2px 12px -2px hsl(25 25% 15% / 0.08);
-    --shadow-floating: 0 8px 32px -8px hsl(25 25% 15% / 0.12);
-
-    --radius: 0.5rem;
+    --radius: 1rem;
 
     --sidebar-background: 0 0% 98%;
 
